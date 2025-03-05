@@ -18,9 +18,11 @@
             height: 100vh;
             background-color: #f8f8f8;
             text-align: center;
+            padding: 0 20px; /* Adds left and right margin on mobile */
         }
         .container {
             max-width: 600px;
+            width: 100%;
         }
         h1 {
             font-size: 2.5rem;
@@ -46,13 +48,18 @@
             background: #000;
             color: #fff;
         }
+        @media (max-width: 768px) {
+            .container {
+                padding: 0 30px; /* Increase left/right margin on smaller screens */
+            }
+        }
     </style>
 </head>
 <body>
     <div class="container">
         <h1>Poweroften</h1>
         <p>Handcrafted bespoke eyewear</p>
-        <p>     Designed and produced in a home workshop all by Ten     </p>
+        <p>Designed and produced in a home workshop all by Ten</p>
         <p>6 · 6 · 25</p>
         <a href="mailto:poweroften@gmail.com">Email Me</a>
     </div>
