@@ -59,9 +59,30 @@
     <div class="container">
         <h1>Poweroften</h1>
         <p>Handcrafted bespoke eyewear</p>
-        <p>Every piece is designed and meticulously handmade by <em>me</em></p>
-        <p>Prologue: 6 · 6 · 25</p>
-        <a href="mailto:poweroften@gmail.com">Email <em>me</em></a>
+        <p>Designed and produced in a home workshop all by Ten</p>
+        <p>Prologue : 6 · 6 · 25</p>
+        <div id="countdown"></div>
+        <a href="mailto:poweroften@gmail.com">Email Me</a>
     </div>
+    <script>
+        function updateCountdown() {
+            const eventDate = new Date("June 6, 2025 00:00:00").getTime();
+            const now = new Date().getTime();
+            const timeLeft = eventDate - now;
+
+            const days = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
+
+            document.getElementById("countdown").innerHTML = `${days}d ${hours}h ${minutes}m ${seconds}s`;
+
+            if (timeLeft < 0) {
+                document.getElementById("countdown").innerHTML = "Event Started!";
+            }
+        }
+        setInterval(updateCountdown, 1000);
+        updateCountdown();
+    </script>
 </body>
 </html>
