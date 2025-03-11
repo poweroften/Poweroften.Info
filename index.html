@@ -1,9 +1,9 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>⚡️ 🔟  👓  🕶️ 🫰</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>⚡️ 🔟 👓 🕶️ 🫰</title>
   <style>
     * {
       margin: 0;
@@ -16,7 +16,7 @@
       flex-direction: column;
       justify-content: center;
       align-items: center;
-      height: 100vh;
+      min-height: 100vh;
       background-color: #f8f8f8;
       text-align: center;
       padding: 0 20px;
@@ -26,16 +26,17 @@
       max-width: 600px;
       width: 100%;
     }
-    /* New container for the Three.js title effect */
+    /* Container for the Three.js title effect */
     #title-canvas {
       width: 100%;
+      /* On larger screens we use 220px, on mobile we reduce it */
       height: 220px;
       margin-bottom: 25px;
     }
-    h1 {
-      font-size: 2.5rem;
-      font-weight: bold;
-      text-transform: uppercase;
+    @media (max-width: 768px) {
+      #title-canvas {
+        height: 180px;
+      }
     }
     p {
       font-size: 1rem;
@@ -58,17 +59,12 @@
     }
     #countdown {
       font-size: 1.5rem;
-      font-weight: light;
+      font-weight: lighter;
       position: absolute;
       bottom: 20px;
       left: 50%;
       transform: translateX(-50%);
       color: #cc99ff;
-    }
-    @media (max-width: 768px) {
-      .container {
-        padding: 0 30px;
-      }
     }
   </style>
 </head>
@@ -83,72 +79,83 @@
   </div>
   <div id="countdown"></div>
   
-  <!-- Three.js static title effect script -->
   <script type="module">
     import * as THREE from "https://cdn.skypack.dev/three@0.133.1/build/three.module.js";
     
-    // Static text to display as the title
+    // Static text and font settings
     const titleString = "power of Ten";
     const fontName = 'Helvetica';
-    const textureFontSize = 200;
-    // Increase the scale factor 2.5 times over the original 0.075:
-    const fontScaleFactor = 0.075; // 0.075 * 2.5
-
-    // Fixed dimensions for the offscreen text texture
+    const textureFontSize = 200;  // Base font size for offscreen canvas
+    // The base scale factor (if the container were as wide as the fixed canvas)
+    const baseFontScaleFactor = 0.075;
+    
+    // Fixed offscreen canvas dimensions (designed to capture full text)
     const fixedTextureWidth = 1200;
     const fixedTextureHeight = 200;
+    
+    // dynamicFontScaleFactor will be computed from container width
+    let dynamicFontScaleFactor = baseFontScaleFactor;
     
     let scene, camera, renderer, textCanvas, textCtx, particleGeometry, dummy, clock;
     let flowerInstancedMesh, leafInstancedMesh, flowerMaterial, leafMaterial;
     let particles = [];
     let textureCoordinates = [];
+    
+    // stringBox will be recalculated based on dynamic scale factor
     let stringBox = {
       wTexture: fixedTextureWidth,
       hTexture: fixedTextureHeight,
-      wScene: fixedTextureWidth * fontScaleFactor,
-      hScene: fixedTextureHeight * fontScaleFactor,
+      wScene: fixedTextureWidth * dynamicFontScaleFactor,
+      hScene: fixedTextureHeight * dynamicFontScaleFactor,
       caretPosScene: [0, 0]
     };
-
-    // Create an offscreen canvas and draw the static text centered
+    
+    // Create offscreen canvas to draw text
     textCanvas = document.createElement('canvas');
     textCanvas.width = fixedTextureWidth;
     textCanvas.height = fixedTextureHeight;
     textCtx = textCanvas.getContext('2d');
+    
     function drawStaticText() {
+      textCtx.clearRect(0, 0, textCanvas.width, textCanvas.height);
       textCtx.font = '100 ' + textureFontSize + 'px ' + fontName;
       textCtx.fillStyle = '#2a9d8f';
-      textCtx.textAlign = 'center'; // Center the text horizontally
-      textCtx.clearRect(0, 0, textCanvas.width, textCanvas.height);
+      textCtx.textAlign = 'center';
+      textCtx.textBaseline = 'middle';
       const lines = titleString.split('\n');
       const linesNumber = lines.length;
       for (let i = 0; i < linesNumber; i++) {
-        // Draw at x = center of canvas
-        textCtx.fillText(lines[i], textCanvas.width / 2, (i + 0.8) * textCanvas.height / linesNumber);
+        const y = textCanvas.height / 2 + (i - (linesNumber - 1) / 2) * (textureFontSize * 1.2);
+        textCtx.fillText(lines[i], textCanvas.width / 2, y);
       }
     }
     drawStaticText();
     
-    init();
-    handleStaticText();
-    refreshText();
-    render();
-    
+    // Initialize Three.js using container dimensions and recalc dynamicFontScaleFactor
     function init() {
-      // Create a camera with aspect ratio matching the title container (600x300)
-      camera = new THREE.PerspectiveCamera(45, 600 / 300, 0.1, 1000);
-      camera.position.z = 18;
+      const container = document.getElementById("title-canvas");
+      const width = container.clientWidth;
+      const height = container.clientHeight;
+      
+      // Recalculate the dynamic scale factor based on container width relative to fixedTextureWidth
+      dynamicFontScaleFactor = baseFontScaleFactor * (width / fixedTextureWidth);
+      stringBox.wScene = fixedTextureWidth * dynamicFontScaleFactor;
+      stringBox.hScene = fixedTextureHeight * dynamicFontScaleFactor;
+      
+      camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
+      // Adjust camera position so that the whole text fits – you might need to tweak this value
+      camera.position.z = 30;
       scene = new THREE.Scene();
       
-      renderer = new THREE.WebGLRenderer({ alpha: true });
+      renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
       renderer.setPixelRatio(window.devicePixelRatio);
-      renderer.setSize(600, 300);
-      // Attach renderer's canvas to the title container
-      document.getElementById('title-canvas').appendChild(renderer.domElement);
+      renderer.setSize(width, height);
+      container.innerHTML = ""; // clear any previous renderer canvas
+      container.appendChild(renderer.domElement);
       
       particleGeometry = new THREE.PlaneGeometry(1.2, 1.2);
       
-      // Load local textures (ensure flower.png and leaf.png are in your folder)
+      // Use full-color textures instead of alphaMap so they render in color
       const flowerTexture = new THREE.TextureLoader().load('img/flower.png');
       flowerMaterial = new THREE.MeshBasicMaterial({
         alphaMap: flowerTexture,
@@ -168,41 +175,45 @@
       
       dummy = new THREE.Object3D();
       clock = new THREE.Clock();
+      
+      window.addEventListener("resize", onWindowResize, false);
     }
     
-    // Since the text is static, sample the "lit" pixels once.
+    function onWindowResize() {
+      const container = document.getElementById("title-canvas");
+      const width = container.clientWidth;
+      const height = container.clientHeight;
+      
+      // Recalculate dynamic scale factor on resize
+      dynamicFontScaleFactor = baseFontScaleFactor * (width / fixedTextureWidth);
+      stringBox.wScene = fixedTextureWidth * dynamicFontScaleFactor;
+      stringBox.hScene = fixedTextureHeight * dynamicFontScaleFactor;
+      
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+      renderer.setSize(width, height);
+      makeTextFitScreen();
+    }
+    
+    // Sample the offscreen canvas to determine which pixels are "lit"
     function handleStaticText() {
       const imageData = textCtx.getImageData(0, 0, textCanvas.width, textCanvas.height);
-      const imageMask = Array.from(Array(textCanvas.height), () => new Array(textCanvas.width));
-      for (let i = 0; i < textCanvas.height; i++) {
-        for (let j = 0; j < textCanvas.width; j++) {
-          imageMask[i][j] = imageData.data[(j + i * textCanvas.width) * 4] > 0;
-        }
-      }
-      for (let i = 0; i < textCanvas.height; i++) {
-        for (let j = 0; j < textCanvas.width; j++) {
-          if (imageMask[i][j]) {
-            textureCoordinates.push({
-              x: j,
-              y: i,
-              old: false,
-              toDelete: false
-            });
+      const data = imageData.data;
+      for (let y = 0; y < textCanvas.height; y++) {
+        for (let x = 0; x < textCanvas.width; x++) {
+          if (data[(x + y * textCanvas.width) * 4] > 0) {
+            textureCoordinates.push({ x, y });
           }
         }
       }
     }
     
     function refreshText() {
-      particles = textureCoordinates.map((c, cIdx) => {
-        const x = c.x * fontScaleFactor;
-        const y = c.y * fontScaleFactor;
-        let p = (c.old && particles[cIdx]) ? particles[cIdx] : (Math.random() > 0.2 ? new Flower([x, y]) : new Leaf([x, y]));
-        if (c.toDelete) {
-          p.toDelete = true;
-          p.scale = p.maxScale;
-        }
-        return p;
+      // Use dynamicFontScaleFactor when computing particle positions
+      particles = textureCoordinates.map(c => {
+        const x = c.x * dynamicFontScaleFactor;
+        const y = c.y * dynamicFontScaleFactor;
+        return Math.random() > 0.2 ? new Flower([x, y]) : new Leaf([x, y]);
       });
       recreateInstancedMesh();
       makeTextFitScreen();
@@ -304,7 +315,7 @@
         p.grow();
         dummy.quaternion.copy(camera.quaternion);
         dummy.rotation.z += p.rotationZ;
-        // Multiply each scale value by 1.25 to double the particle size:
+        // Multiply each scale by a desired multiplier (adjust as needed)
         dummy.scale.set(p.scale * 1.25, p.scale * 1.25, p.scale * 1.25);
         dummy.position.set(p.x, stringBox.hScene - p.y, p.z);
         if (p.type === 1) {
@@ -324,6 +335,10 @@
     }
     
     function makeTextFitScreen() {
+      // Optionally adjust camera position to ensure the text fits the view
+      const container = document.getElementById("title-canvas");
+      const width = container.clientWidth;
+      const height = container.clientHeight;
       const fov = camera.fov * (Math.PI / 180);
       const fovH = 2 * Math.atan(Math.tan(fov / 2) * camera.aspect);
       const dx = Math.abs(0.55 * stringBox.wScene / Math.tan(0.5 * fovH));
@@ -336,11 +351,16 @@
       }
     }
     
-    function render() {
-      requestAnimationFrame(render);
+    function animate() {
+      requestAnimationFrame(animate);
       updateParticlesMatrices();
       renderer.render(scene, camera);
     }
+    
+    init();
+    handleStaticText();
+    refreshText();
+    animate();
   </script>
   
   <!-- Countdown script remains unchanged -->
