@@ -1,100 +1,365 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>⚡️ 🔟  👓  🕶️ 🫰</title>
-<style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: "Helvetica", sans-serif;
-        }
-        body {
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            background-color: #f8f8f8;
-            text-align: center;
-            padding: 0 20px; /* Adds left and right margin on mobile */
-            position: relative;
-        }
-        .container {
-            max-width: 600px;
-            width: 100%;
-        }
-        h1 {
-            font-size: 2.5rem;
-            font-weight: bold;
-            text-transform: uppercase;
-        }
-        p {
-            font-size: 1rem;
-            color: #555;
-            margin: 10px 0;
-        }
-        a {
-            display: inline-block;
-            margin-top: 20px;
-            font-size: 1rem;
-            text-decoration: none;
-            color: #000;
-            border: 1px solid #000;
-            padding: 10px 20px;
-            transition: all 0.3s ease;
-        }
-        a:hover {
-            background: #000;
-            color: #fff;
-        }
-        #countdown {
-            font-size: 1.5rem;
-            font-weight: light;
-            position: absolute;
-            bottom: 20px;
-            left: 50%;
-            transform: translateX(-50%);
-            color: #cc99ff; /* Light Violet */
-        }
-        @media (max-width: 768px) {
-            .container {
-                padding: 0 30px; /* Increase left/right margin on smaller screens */
-            }
-        }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>⚡️ 🔟  👓  🕶️ 🫰</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: "Helvetica", sans-serif;
+    }
+    body {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background-color: #f8f8f8;
+      text-align: center;
+      padding: 0 20px;
+      position: relative;
+    }
+    .container {
+      max-width: 600px;
+      width: 100%;
+    }
+    /* New container for the Three.js title effect */
+    #title-canvas {
+      width: 100%;
+      height: 220px;
+      margin-bottom: 25px;
+    }
+    h1 {
+      font-size: 2.5rem;
+      font-weight: bold;
+      text-transform: uppercase;
+    }
+    p {
+      font-size: 1rem;
+      color: #555;
+      margin: 10px 0;
+    }
+    a {
+      display: inline-block;
+      margin-top: 20px;
+      font-size: 1rem;
+      text-decoration: none;
+      color: #000;
+      border: 1px solid #000;
+      padding: 10px 20px;
+      transition: all 0.3s ease;
+    }
+    a:hover {
+      background: #000;
+      color: #fff;
+    }
+    #countdown {
+      font-size: 1.5rem;
+      font-weight: light;
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: #cc99ff;
+    }
+    @media (max-width: 768px) {
+      .container {
+        padding: 0 30px;
+      }
+    }
+  </style>
 </head>
 <body>
-    <div class="container">
-        <h1>Poweroften</h1>
-        <p>Handcrafted bespoke eyewear</p>
-        <p>Every piece is designed and meticulously handmade by <em>me</em></p>
-        <p>Prologue: 6 · 6 · 25</p>
-        <a href="mailto:poweroften@gmail.com">Email <em>me</em></a>
-    </div>
-    <div id="countdown"></div>
-    <script>
-        function updateCountdown() {
-            const eventDate = new Date("June 6, 2025 00:00:00").getTime();
-            const now = new Date().getTime();
-            const timeLeft = eventDate - now;
+  <div class="container">
+    <!-- Three.js title effect renders in this container -->
+    <div id="title-canvas"></div>
+    <p>Handcrafted bespoke eyewear</p>
+    <p>Every piece is designed and meticulously handmade by <em>me</em></p>
+    <p>Prologue: 6 · 6 · 25</p>
+    <a href="mailto:poweroften@gmail.com">Email <em>me</em></a>
+  </div>
+  <div id="countdown"></div>
+  
+  <!-- Three.js static title effect script -->
+  <script type="module">
+    import * as THREE from "https://cdn.skypack.dev/three@0.133.1/build/three.module.js";
+    
+    // Static text to display as the title
+    const titleString = "power of Ten";
+    const fontName = 'Helvetica';
+    const textureFontSize = 200;
+    // Increase the scale factor 2.5 times over the original 0.075:
+    const fontScaleFactor = 0.075; // 0.075 * 2.5
 
-            const days = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
-            const hours = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-            const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
-            const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
+    // Fixed dimensions for the offscreen text texture
+    const fixedTextureWidth = 1200;
+    const fixedTextureHeight = 200;
+    
+    let scene, camera, renderer, textCanvas, textCtx, particleGeometry, dummy, clock;
+    let flowerInstancedMesh, leafInstancedMesh, flowerMaterial, leafMaterial;
+    let particles = [];
+    let textureCoordinates = [];
+    let stringBox = {
+      wTexture: fixedTextureWidth,
+      hTexture: fixedTextureHeight,
+      wScene: fixedTextureWidth * fontScaleFactor,
+      hScene: fixedTextureHeight * fontScaleFactor,
+      caretPosScene: [0, 0]
+    };
 
-            document.getElementById("countdown").innerHTML = `${days}d ${hours}h ${minutes}m ${seconds}s`;
-
-            if (timeLeft < 0) {
-                document.getElementById("countdown").innerHTML = "Event Started!";
-            }
+    // Create an offscreen canvas and draw the static text centered
+    textCanvas = document.createElement('canvas');
+    textCanvas.width = fixedTextureWidth;
+    textCanvas.height = fixedTextureHeight;
+    textCtx = textCanvas.getContext('2d');
+    function drawStaticText() {
+      textCtx.font = '100 ' + textureFontSize + 'px ' + fontName;
+      textCtx.fillStyle = '#2a9d8f';
+      textCtx.textAlign = 'center'; // Center the text horizontally
+      textCtx.clearRect(0, 0, textCanvas.width, textCanvas.height);
+      const lines = titleString.split('\n');
+      const linesNumber = lines.length;
+      for (let i = 0; i < linesNumber; i++) {
+        // Draw at x = center of canvas
+        textCtx.fillText(lines[i], textCanvas.width / 2, (i + 0.8) * textCanvas.height / linesNumber);
+      }
+    }
+    drawStaticText();
+    
+    init();
+    handleStaticText();
+    refreshText();
+    render();
+    
+    function init() {
+      // Create a camera with aspect ratio matching the title container (600x300)
+      camera = new THREE.PerspectiveCamera(45, 600 / 300, 0.1, 1000);
+      camera.position.z = 18;
+      scene = new THREE.Scene();
+      
+      renderer = new THREE.WebGLRenderer({ alpha: true });
+      renderer.setPixelRatio(window.devicePixelRatio);
+      renderer.setSize(600, 300);
+      // Attach renderer's canvas to the title container
+      document.getElementById('title-canvas').appendChild(renderer.domElement);
+      
+      particleGeometry = new THREE.PlaneGeometry(1.2, 1.2);
+      
+      // Load local textures (ensure flower.png and leaf.png are in your folder)
+      const flowerTexture = new THREE.TextureLoader().load('img/flower.png');
+      flowerMaterial = new THREE.MeshBasicMaterial({
+        alphaMap: flowerTexture,
+        opacity: 0.3,
+        depthTest: false,
+        transparent: true,
+        color: 0xffffff
+      });
+      const leafTexture = new THREE.TextureLoader().load('img/leaf.png');
+      leafMaterial = new THREE.MeshBasicMaterial({
+        alphaMap: leafTexture,
+        opacity: 0.35,
+        depthTest: false,
+        transparent: true,
+        color: 0xffffff
+      });
+      
+      dummy = new THREE.Object3D();
+      clock = new THREE.Clock();
+    }
+    
+    // Since the text is static, sample the "lit" pixels once.
+    function handleStaticText() {
+      const imageData = textCtx.getImageData(0, 0, textCanvas.width, textCanvas.height);
+      const imageMask = Array.from(Array(textCanvas.height), () => new Array(textCanvas.width));
+      for (let i = 0; i < textCanvas.height; i++) {
+        for (let j = 0; j < textCanvas.width; j++) {
+          imageMask[i][j] = imageData.data[(j + i * textCanvas.width) * 4] > 0;
         }
-        setInterval(updateCountdown, 1000);
-        updateCountdown();
-    </script>
+      }
+      for (let i = 0; i < textCanvas.height; i++) {
+        for (let j = 0; j < textCanvas.width; j++) {
+          if (imageMask[i][j]) {
+            textureCoordinates.push({
+              x: j,
+              y: i,
+              old: false,
+              toDelete: false
+            });
+          }
+        }
+      }
+    }
+    
+    function refreshText() {
+      particles = textureCoordinates.map((c, cIdx) => {
+        const x = c.x * fontScaleFactor;
+        const y = c.y * fontScaleFactor;
+        let p = (c.old && particles[cIdx]) ? particles[cIdx] : (Math.random() > 0.2 ? new Flower([x, y]) : new Leaf([x, y]));
+        if (c.toDelete) {
+          p.toDelete = true;
+          p.scale = p.maxScale;
+        }
+        return p;
+      });
+      recreateInstancedMesh();
+      makeTextFitScreen();
+    }
+    
+    function Flower([x, y]) {
+      this.type = 0;
+      this.x = x + 0.2 * (Math.random() - 0.5);
+      this.y = y + 0.2 * (Math.random() - 0.5);
+      this.z = 0;
+      this.color = Math.random() * 60;
+      this.isGrowing = true;
+      this.toDelete = false;
+      this.scale = 0;
+      this.maxScale = 0.9 * Math.pow(Math.random(), 20);
+      this.deltaScale = 0.03 + 0.1 * Math.random();
+      this.age = Math.PI * Math.random();
+      this.ageDelta = 0.01 + 0.02 * Math.random();
+      this.rotationZ = 0.5 * Math.random() * Math.PI;
+      this.grow = function () {
+        this.age += this.ageDelta;
+        if (this.isGrowing) {
+          this.deltaScale *= 0.99;
+          this.scale += this.deltaScale;
+          if (this.scale >= this.maxScale) {
+            this.isGrowing = false;
+          }
+        } else if (this.toDelete) {
+          this.deltaScale *= 1.1;
+          this.scale -= this.deltaScale;
+          if (this.scale <= 0) {
+            this.scale = 0;
+            this.deltaScale = 0;
+          }
+        } else {
+          this.scale = this.maxScale + 0.2 * Math.sin(this.age);
+          this.rotationZ += 0.001 * Math.cos(this.age);
+        }
+      };
+    }
+    
+    function Leaf([x, y]) {
+      this.type = 1;
+      this.x = x;
+      this.y = y;
+      this.z = 0;
+      this.rotationZ = 0.6 * (Math.random() - 0.5) * Math.PI;
+      this.color = 100 + Math.random() * 50;
+      this.isGrowing = true;
+      this.toDelete = false;
+      this.scale = 0;
+      this.maxScale = 0.1 + 0.7 * Math.pow(Math.random(), 7);
+      this.deltaScale = 0.03 + 0.03 * Math.random();
+      this.age = Math.PI * Math.random();
+      this.grow = function () {
+        if (this.isGrowing) {
+          this.deltaScale *= 0.99;
+          this.scale += this.deltaScale;
+          if (this.scale >= this.maxScale) {
+            this.isGrowing = false;
+          }
+        }
+        if (this.toDelete) {
+          this.deltaScale *= 1.1;
+          this.scale -= this.deltaScale;
+          if (this.scale <= 0) {
+            this.scale = 0;
+          }
+        }
+      };
+    }
+    
+    function recreateInstancedMesh() {
+      scene.remove(flowerInstancedMesh, leafInstancedMesh);
+      const totalNumberOfFlowers = particles.filter(v => v.type === 0).length;
+      const totalNumberOfLeafs = particles.filter(v => v.type === 1).length;
+      flowerInstancedMesh = new THREE.InstancedMesh(particleGeometry, flowerMaterial, totalNumberOfFlowers);
+      leafInstancedMesh = new THREE.InstancedMesh(particleGeometry, leafMaterial, totalNumberOfLeafs);
+      scene.add(flowerInstancedMesh, leafInstancedMesh);
+      let flowerIdx = 0;
+      let leafIdx = 0;
+      particles.forEach(p => {
+        if (p.type === 0) {
+          flowerInstancedMesh.setColorAt(flowerIdx, new THREE.Color(`hsl(${p.color}, 100%, 50%)`));
+          flowerIdx++;
+        } else {
+          leafInstancedMesh.setColorAt(leafIdx, new THREE.Color(`hsl(${p.color}, 100%, 20%)`));
+          leafIdx++;
+        }
+      });
+      flowerInstancedMesh.position.x = leafInstancedMesh.position.x = -0.5 * stringBox.wScene;
+      flowerInstancedMesh.position.y = leafInstancedMesh.position.y = -0.5 * stringBox.hScene;
+    }
+    
+    function updateParticlesMatrices() {
+      let flowerIdx = 0;
+      let leafIdx = 0;
+      particles.forEach(p => {
+        p.grow();
+        dummy.quaternion.copy(camera.quaternion);
+        dummy.rotation.z += p.rotationZ;
+        // Multiply each scale value by 1.25 to double the particle size:
+        dummy.scale.set(p.scale * 1.25, p.scale * 1.25, p.scale * 1.25);
+        dummy.position.set(p.x, stringBox.hScene - p.y, p.z);
+        if (p.type === 1) {
+          dummy.position.y += 0.5 * p.scale;
+        }
+        dummy.updateMatrix();
+        if (p.type === 0) {
+          flowerInstancedMesh.setMatrixAt(flowerIdx, dummy.matrix);
+          flowerIdx++;
+        } else {
+          leafInstancedMesh.setMatrixAt(leafIdx, dummy.matrix);
+          leafIdx++;
+        }
+      });
+      flowerInstancedMesh.instanceMatrix.needsUpdate = true;
+      leafInstancedMesh.instanceMatrix.needsUpdate = true;
+    }
+    
+    function makeTextFitScreen() {
+      const fov = camera.fov * (Math.PI / 180);
+      const fovH = 2 * Math.atan(Math.tan(fov / 2) * camera.aspect);
+      const dx = Math.abs(0.55 * stringBox.wScene / Math.tan(0.5 * fovH));
+      const dy = Math.abs(0.55 * stringBox.hScene / Math.tan(0.5 * fov));
+      const factor = Math.max(dx, dy) / camera.position.length();
+      if (factor > 1) {
+        camera.position.x *= factor;
+        camera.position.y *= factor;
+        camera.position.z *= factor;
+      }
+    }
+    
+    function render() {
+      requestAnimationFrame(render);
+      updateParticlesMatrices();
+      renderer.render(scene, camera);
+    }
+  </script>
+  
+  <!-- Countdown script remains unchanged -->
+  <script>
+    function updateCountdown() {
+      const eventDate = new Date("June 6, 2025 00:00:00").getTime();
+      const now = new Date().getTime();
+      const timeLeft = eventDate - now;
+      const days = Math.floor(timeLeft / (1000 * 60 * 60 * 24));
+      const hours = Math.floor((timeLeft % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+      const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
+      document.getElementById("countdown").innerHTML = `${days}d ${hours}h ${minutes}m ${seconds}s`;
+      if (timeLeft < 0) {
+        document.getElementById("countdown").innerHTML = "Event Started!";
+      }
+    }
+    setInterval(updateCountdown, 1000);
+    updateCountdown();
+  </script>
 </body>
 </html>
-
