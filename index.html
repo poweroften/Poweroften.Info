@@ -29,14 +29,11 @@
     /* Container for the Three.js title effect */
     #title-canvas {
       width: 100%;
-      /* On larger screens we use 220px, on mobile we reduce it */
-      height: 220px;
+      /* Let’s make the container use 40% of the viewport height (vh),
+         but never go below 220px. This ensures a large area on mobile. */
+      height: 40vh;
+      min-height: 220px;
       margin-bottom: 25px;
-    }
-    @media (max-width: 768px) {
-      #title-canvas {
-        height: 180px;
-      }
     }
     p {
       font-size: 1rem;
@@ -81,48 +78,51 @@
   
   <script type="module">
     import * as THREE from "https://cdn.skypack.dev/three@0.133.1/build/three.module.js";
-    
-    // Static text and font settings
-    const titleString = "power of Ten";
-    const fontName = 'Helvetica';
-    const textureFontSize = 200;  // Base font size for offscreen canvas
-    // The base scale factor (if the container were as wide as the fixed canvas)
-    const baseFontScaleFactor = 0.075;
-    
-    // Fixed offscreen canvas dimensions (designed to capture full text)
-    const fixedTextureWidth = 1200;
+
+    // Text and font settings
+    const titleString     = "power of Ten";
+    const fontName        = "Helvetica";
+    const textureFontSize = 200; // Base font size for offscreen canvas
+
+    // Base scale factor if container is as wide as our offscreen width
+    let baseFontScaleFactor = 0.1; // Bump this up from 0.075 for a larger text
+
+    // Offscreen canvas dims for sampling
+    const fixedTextureWidth  = 1200;
     const fixedTextureHeight = 200;
-    
-    // dynamicFontScaleFactor will be computed from container width
+
+    // We'll clamp the container width so the text never becomes too small
+    const minContainerWidth = 400; // Adjust as desired
+
     let dynamicFontScaleFactor = baseFontScaleFactor;
-    
-    let scene, camera, renderer, textCanvas, textCtx, particleGeometry, dummy, clock;
+
+    let scene, camera, renderer;
+    let textCanvas, textCtx, particleGeometry, dummy, clock;
     let flowerInstancedMesh, leafInstancedMesh, flowerMaterial, leafMaterial;
     let particles = [];
     let textureCoordinates = [];
-    
-    // stringBox will be recalculated based on dynamic scale factor
+
+    // stringBox updated after computing dynamicFontScaleFactor
     let stringBox = {
       wTexture: fixedTextureWidth,
       hTexture: fixedTextureHeight,
       wScene: fixedTextureWidth * dynamicFontScaleFactor,
-      hScene: fixedTextureHeight * dynamicFontScaleFactor,
-      caretPosScene: [0, 0]
+      hScene: fixedTextureHeight * dynamicFontScaleFactor
     };
-    
-    // Create offscreen canvas to draw text
-    textCanvas = document.createElement('canvas');
-    textCanvas.width = fixedTextureWidth;
+
+    // Offscreen canvas for text
+    textCanvas = document.createElement("canvas");
+    textCanvas.width  = fixedTextureWidth;
     textCanvas.height = fixedTextureHeight;
-    textCtx = textCanvas.getContext('2d');
-    
+    textCtx = textCanvas.getContext("2d");
+
     function drawStaticText() {
       textCtx.clearRect(0, 0, textCanvas.width, textCanvas.height);
-      textCtx.font = '100 ' + textureFontSize + 'px ' + fontName;
-      textCtx.fillStyle = '#2a9d8f';
-      textCtx.textAlign = 'center';
-      textCtx.textBaseline = 'middle';
-      const lines = titleString.split('\n');
+      textCtx.font = "100 " + textureFontSize + "px " + fontName;
+      textCtx.fillStyle = "#2a9d8f";
+      textCtx.textAlign = "center";
+      textCtx.textBaseline = "middle";
+      const lines = titleString.split("\n");
       const linesNumber = lines.length;
       for (let i = 0; i < linesNumber; i++) {
         const y = textCanvas.height / 2 + (i - (linesNumber - 1) / 2) * (textureFontSize * 1.2);
@@ -130,33 +130,36 @@
       }
     }
     drawStaticText();
-    
-    // Initialize Three.js using container dimensions and recalc dynamicFontScaleFactor
+
     function init() {
       const container = document.getElementById("title-canvas");
-      const width = container.clientWidth;
-      const height = container.clientHeight;
-      
-      // Recalculate the dynamic scale factor based on container width relative to fixedTextureWidth
+      let width  = container.clientWidth;
+      let height = container.clientHeight;
+
+      // Enforce a minimum container width so text won't be too small
+      width = Math.max(width, minContainerWidth);
+
+      // Recalculate the dynamic scale factor
       dynamicFontScaleFactor = baseFontScaleFactor * (width / fixedTextureWidth);
+
       stringBox.wScene = fixedTextureWidth * dynamicFontScaleFactor;
       stringBox.hScene = fixedTextureHeight * dynamicFontScaleFactor;
-      
+
       camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
-      // Adjust camera position so that the whole text fits – you might need to tweak this value
       camera.position.z = 30;
+
       scene = new THREE.Scene();
-      
+
       renderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
       renderer.setPixelRatio(window.devicePixelRatio);
       renderer.setSize(width, height);
-      container.innerHTML = ""; // clear any previous renderer canvas
+      container.innerHTML = ""; // remove any old canvas
       container.appendChild(renderer.domElement);
-      
+
       particleGeometry = new THREE.PlaneGeometry(1.2, 1.2);
-      
-      // Use full-color textures instead of alphaMap so they render in color
-      const flowerTexture = new THREE.TextureLoader().load('img/flower.png');
+
+      // Use color textures (not alphaMap) so images have color
+      const flowerTexture = new THREE.TextureLoader().load("img/flower.png");
       flowerMaterial = new THREE.MeshBasicMaterial({
         alphaMap: flowerTexture,
         opacity: 0.3,
@@ -164,7 +167,7 @@
         transparent: true,
         color: 0xffffff
       });
-      const leafTexture = new THREE.TextureLoader().load('img/leaf.png');
+      const leafTexture = new THREE.TextureLoader().load("img/leaf.png");
       leafMaterial = new THREE.MeshBasicMaterial({
         alphaMap: leafTexture,
         opacity: 0.35,
@@ -172,30 +175,35 @@
         transparent: true,
         color: 0xffffff
       });
-      
+
       dummy = new THREE.Object3D();
       clock = new THREE.Clock();
-      
+
       window.addEventListener("resize", onWindowResize, false);
     }
-    
+
     function onWindowResize() {
       const container = document.getElementById("title-canvas");
-      const width = container.clientWidth;
-      const height = container.clientHeight;
-      
-      // Recalculate dynamic scale factor on resize
+      let width  = container.clientWidth;
+      let height = container.clientHeight;
+
+      // Enforce a minimum container width
+      width = Math.max(width, minContainerWidth);
+
+      // Recalc dynamic scale factor
       dynamicFontScaleFactor = baseFontScaleFactor * (width / fixedTextureWidth);
       stringBox.wScene = fixedTextureWidth * dynamicFontScaleFactor;
       stringBox.hScene = fixedTextureHeight * dynamicFontScaleFactor;
-      
+
       camera.aspect = width / height;
       camera.updateProjectionMatrix();
       renderer.setSize(width, height);
-      makeTextFitScreen();
+
+      // Redo the text layout with the new scale
+      refreshText();
     }
-    
-    // Sample the offscreen canvas to determine which pixels are "lit"
+
+    // Sample offscreen text
     function handleStaticText() {
       const imageData = textCtx.getImageData(0, 0, textCanvas.width, textCanvas.height);
       const data = imageData.data;
@@ -207,9 +215,8 @@
         }
       }
     }
-    
+
     function refreshText() {
-      // Use dynamicFontScaleFactor when computing particle positions
       particles = textureCoordinates.map(c => {
         const x = c.x * dynamicFontScaleFactor;
         const y = c.y * dynamicFontScaleFactor;
@@ -218,7 +225,7 @@
       recreateInstancedMesh();
       makeTextFitScreen();
     }
-    
+
     function Flower([x, y]) {
       this.type = 0;
       this.x = x + 0.2 * (Math.random() - 0.5);
@@ -254,7 +261,7 @@
         }
       };
     }
-    
+
     function Leaf([x, y]) {
       this.type = 1;
       this.x = x;
@@ -285,7 +292,7 @@
         }
       };
     }
-    
+
     function recreateInstancedMesh() {
       scene.remove(flowerInstancedMesh, leafInstancedMesh);
       const totalNumberOfFlowers = particles.filter(v => v.type === 0).length;
@@ -307,7 +314,7 @@
       flowerInstancedMesh.position.x = leafInstancedMesh.position.x = -0.5 * stringBox.wScene;
       flowerInstancedMesh.position.y = leafInstancedMesh.position.y = -0.5 * stringBox.hScene;
     }
-    
+
     function updateParticlesMatrices() {
       let flowerIdx = 0;
       let leafIdx = 0;
@@ -315,8 +322,8 @@
         p.grow();
         dummy.quaternion.copy(camera.quaternion);
         dummy.rotation.z += p.rotationZ;
-        // Multiply each scale by a desired multiplier (adjust as needed)
-        dummy.scale.set(p.scale * 1.25, p.scale * 1.25, p.scale * 1.25);
+        // Multiply each scale value by 1.5 to double the particle size:
+        dummy.scale.set(p.scale * 1.5, p.scale * 1.5, p.scale * 1.5);
         dummy.position.set(p.x, stringBox.hScene - p.y, p.z);
         if (p.type === 1) {
           dummy.position.y += 0.5 * p.scale;
@@ -333,36 +340,33 @@
       flowerInstancedMesh.instanceMatrix.needsUpdate = true;
       leafInstancedMesh.instanceMatrix.needsUpdate = true;
     }
-    
+
     function makeTextFitScreen() {
-      // Optionally adjust camera position to ensure the text fits the view
-      const container = document.getElementById("title-canvas");
-      const width = container.clientWidth;
-      const height = container.clientHeight;
-      const fov = camera.fov * (Math.PI / 180);
-      const fovH = 2 * Math.atan(Math.tan(fov / 2) * camera.aspect);
-      const dx = Math.abs(0.55 * stringBox.wScene / Math.tan(0.5 * fovH));
-      const dy = Math.abs(0.55 * stringBox.hScene / Math.tan(0.5 * fov));
-      const factor = Math.max(dx, dy) / camera.position.length();
+      // Optionally adjust camera if the text is too large
+      const dist   = camera.position.length();
+      const fovRad = camera.fov * (Math.PI / 180);
+      const fovH   = 2 * Math.atan(Math.tan(fovRad / 2) * camera.aspect);
+      const dx     = Math.abs(0.55 * stringBox.wScene / Math.tan(0.5 * fovH));
+      const dy     = Math.abs(0.55 * stringBox.hScene / Math.tan(0.5 * fovRad));
+      const factor = Math.max(dx, dy) / dist;
       if (factor > 1) {
-        camera.position.x *= factor;
-        camera.position.y *= factor;
-        camera.position.z *= factor;
+        camera.position.multiplyScalar(factor);
       }
     }
-    
+
     function animate() {
       requestAnimationFrame(animate);
       updateParticlesMatrices();
       renderer.render(scene, camera);
     }
-    
+
+    // Initialize
     init();
     handleStaticText();
     refreshText();
     animate();
   </script>
-  
+
   <!-- Countdown script remains unchanged -->
   <script>
     function updateCountdown() {
