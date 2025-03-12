@@ -23,7 +23,7 @@
       position: relative;
     }
     .container {
-      max-width: 600px;
+      max-width: 1280px;
       width: 100%;
     }
     /* Container for the Three.js title effect */
@@ -82,17 +82,17 @@
     // Text and font settings
     const titleString     = "power of Ten";
     const fontName        = "Helvetica";
-    const textureFontSize = 200; // Base font size for offscreen canvas
+    const textureFontSize = 166; // Base font size for offscreen canvas
 
     // Base scale factor if container is as wide as our offscreen width
-    let baseFontScaleFactor = 0.1; // Bump this up from 0.075 for a larger text
+    let baseFontScaleFactor = 0.045; // Bump this up from 0.075 for a larger text
 
     // Offscreen canvas dims for sampling
-    const fixedTextureWidth  = 1200;
+    const fixedTextureWidth  = 1000;
     const fixedTextureHeight = 200;
 
     // We'll clamp the container width so the text never becomes too small
-    const minContainerWidth = 300; // Adjust as desired
+    const minContainerWidth = 200; // Adjust as desired
 
     let dynamicFontScaleFactor = baseFontScaleFactor;
 
@@ -300,60 +300,62 @@
       flowerInstancedMesh = new THREE.InstancedMesh(particleGeometry, flowerMaterial, totalNumberOfFlowers);
       leafInstancedMesh = new THREE.InstancedMesh(particleGeometry, leafMaterial, totalNumberOfLeafs);
       scene.add(flowerInstancedMesh, leafInstancedMesh);
+  
       let flowerIdx = 0;
       let leafIdx = 0;
       particles.forEach(p => {
-        if (p.type === 0) {
-          flowerInstancedMesh.setColorAt(flowerIdx, new THREE.Color(`hsl(${p.color}, 100%, 50%)`));
-          flowerIdx++;
-        } else {
-          leafInstancedMesh.setColorAt(leafIdx, new THREE.Color(`hsl(${p.color}, 100%, 20%)`));
-          leafIdx++;
-        }
-      });
-      flowerInstancedMesh.position.x = leafInstancedMesh.position.x = -0.5 * stringBox.wScene;
-      flowerInstancedMesh.position.y = leafInstancedMesh.position.y = -0.5 * stringBox.hScene;
-    }
+          if (p.type === 0) {
+              flowerInstancedMesh.setColorAt(flowerIdx, new THREE.Color("hsl(" + p.color + ", 100%, 50%)"));
+              flowerIdx ++;
+          } else {
+              leafInstancedMesh.setColorAt(leafIdx, new THREE.Color("hsl(" + p.color + ", 100%, 20%)"));
+              leafIdx ++;
+          }
+      })
+  
+      leafInstancedMesh.position.x = flowerInstancedMesh.position.x = -.5 * stringBox.wScene;
+      leafInstancedMesh.position.y = flowerInstancedMesh.position.y = -.5 * stringBox.hScene;
+  }
 
     function updateParticlesMatrices() {
       let flowerIdx = 0;
       let leafIdx = 0;
       particles.forEach(p => {
-        p.grow();
-        dummy.quaternion.copy(camera.quaternion);
-        dummy.rotation.z += p.rotationZ;
-        // Multiply each scale value by 1.5 to double the particle size:
-        dummy.scale.set(p.scale * 1.5, p.scale * 1.5, p.scale * 1.5);
-        dummy.position.set(p.x, stringBox.hScene - p.y, p.z);
-        if (p.type === 1) {
-          dummy.position.y += 0.5 * p.scale;
-        }
-        dummy.updateMatrix();
-        if (p.type === 0) {
-          flowerInstancedMesh.setMatrixAt(flowerIdx, dummy.matrix);
-          flowerIdx++;
-        } else {
-          leafInstancedMesh.setMatrixAt(leafIdx, dummy.matrix);
-          leafIdx++;
-        }
-      });
+          p.grow();
+          dummy.quaternion.copy(camera.quaternion);
+          dummy.rotation.z += p.rotationZ;
+          dummy.scale.set(p.scale, p.scale, p.scale);
+          dummy.position.set(p.x, stringBox.hScene - p.y, p.z);
+          if (p.type === 1) {
+              dummy.position.y += .5 * p.scale;
+          }
+          dummy.updateMatrix();
+          if (p.type === 0) {
+              flowerInstancedMesh.setMatrixAt(flowerIdx, dummy.matrix);
+              flowerIdx ++;
+          } else {
+              leafInstancedMesh.setMatrixAt(leafIdx, dummy.matrix);
+              leafIdx ++;
+          }
+      })
       flowerInstancedMesh.instanceMatrix.needsUpdate = true;
-      leafInstancedMesh.instanceMatrix.needsUpdate = true;
-    }
+      leafInstancedMesh.instanceMatrix.needsUpdate = true;}
 
-    function makeTextFitScreen() {
-      // Optionally adjust camera if the text is too large
-      const dist   = camera.position.length();
-      const fovRad = camera.fov * (Math.PI / 180);
-      const fovH   = 2 * Math.atan(Math.tan(fovRad / 2) * camera.aspect);
-      const dx     = Math.abs(0.55 * stringBox.wScene / Math.tan(0.5 * fovH));
-      const dy     = Math.abs(0.55 * stringBox.hScene / Math.tan(0.5 * fovRad));
-      const factor = Math.max(dx, dy) / dist;
-      if (factor > 1) {
-        camera.position.multiplyScalar(factor);
-      }
-    }
+// ---------------------------------------------------------------
+// Move camera so the text is always visible
 
+function makeTextFitScreen() {
+  const fov = camera.fov * (Math.PI / 180);
+  const fovH = 2 * Math.atan(Math.tan(fov / 2) * camera.aspect);
+  const dx = Math.abs(.55 * stringBox.wScene / Math.tan(.5 * fovH));
+  const dy = Math.abs(.55 * stringBox.hScene / Math.tan(.5 * fov));
+  const factor = Math.max(dx, dy) / camera.position.length();
+  if (factor > 1) {
+      camera.position.x *= factor;
+      camera.position.y *= factor;
+      camera.position.z *= factor;
+  }
+}
     function animate() {
       requestAnimationFrame(animate);
       updateParticlesMatrices();
