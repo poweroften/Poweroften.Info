@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Power of Ten — Viewer</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+
+<body class="viewer-page">
+  <!-- Brand logo (top) -->
+  <header class="site-header" id="siteHeader">
+    <a class="brand" href="index.html" aria-label="Back to index">
+      <img src="img/logo.png" alt="Power of Ten" />
+    </a>
+  </header>
+
+  <!-- Brand logo (bottom background) -->
+  <div class="brand-footer" id="brandFooter" aria-hidden="true">
+    <img src="img/logo.png" alt="" />
+  </div>
+
+  <div id="slideshow">
+    <!-- Close -->
+    <a class="close" href="index.html" aria-label="Close">×</a>
+
+    <!-- Slide track (for sliding transitions) -->
+    <div class="slide-viewport">
+      <div class="slide-track" id="slideTrack">
+        <div class="slide">
+          <img id="slideA" alt="" />
+        </div>
+        <div class="slide">
+          <img id="slideB" alt="" />
+        </div>
+      </div>
+    </div>
+
+    <button class="arrow left" aria-label="Previous">‹</button>
+    <button class="arrow right" aria-label="Next">›</button>
+  </div>
+
+  <div id="counter"></div>
+
+  <script src="script.js"></script>
+</body>
+</html>
