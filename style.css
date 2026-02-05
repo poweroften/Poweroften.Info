@@ -4,22 +4,29 @@
   box-sizing: border-box;
 }
 
+/* Smooth + editorial */
 :root {
-  /* snappy + calmer UI fade */
+  /* UI fade should be subtle and quick (your old file had 600s) */
+  --ui-fade-ms: 260ms;
+
+  /* Phoebe-style glide */
   --slide-ms: 800ms;
   --slide-ease: cubic-bezier(0.22, 0.61, 0.36, 1);
-}
+
+  /* spacing */
+  --top-pad: 14px;
+  --side-pad: 14px;
 }
 
 /* ---------- Brand header (top) ---------- */
+/* Center it the robust way (avoids Safari + vw drift) */
 .site-header {
   position: fixed;
-  top: 14px;
-  left: 0;
-  width: 100%;
+  top: var(--top-pad);
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 50;
-  display: flex;
-  justify-content: center;
+
   pointer-events: none;
   transition: opacity var(--ui-fade-ms) ease, transform var(--ui-fade-ms) ease;
 }
@@ -45,6 +52,7 @@
   bottom: 16px;
   transform: translateX(-50%);
   z-index: 5;
+
   pointer-events: none;
   opacity: 0;
   transition: opacity var(--ui-fade-ms) ease;
@@ -54,15 +62,16 @@
   height: 18px;
   width: auto;
   display: block;
-  opacity: 0.14;
+  opacity: 0.12;          /* slightly quieter */
   filter: saturate(0);
 }
 
 /* When engaged: hide header, show footer */
 .is-engaged .site-header {
   opacity: 0;
-  transform: translateY(-6px);
+  transform: translateX(-50%) translateY(-6px);
 }
+
 .is-engaged .brand-footer {
   opacity: 1;
 }
@@ -79,7 +88,7 @@
   top: 0;
   left: 0;
   z-index: 20;
-  padding: 14px 14px;
+  padding: var(--top-pad) var(--side-pad);
   pointer-events: none;
 }
 
@@ -102,7 +111,6 @@
   width: 100%;
 }
 
-/* you changed this to 8 columns already */
 @media (min-width: 900px) {
   .thumbs-grid { grid-template-columns: repeat(8, 1fr); }
 }
@@ -127,34 +135,44 @@
   overflow: hidden;
 }
 
+/* Prefer dynamic viewport units when supported (mobile Safari) */
 #slideshow {
-  width: 100vw;
-  height: 100vh;
   position: relative;
+  width: 100%;
+  height: 100vh;
+}
+
+@supports (height: 100dvh) {
+  #slideshow { height: 100dvh; }
 }
 
 /* Close button */
 .close {
   position: fixed;
-  top: 14px;
-  right: 14px;
+  top: var(--top-pad);
+  right: var(--side-pad);
   z-index: 70;
   text-decoration: none;
   font-size: 30px;
   line-height: 1;
-  color: rgba(0,0,0,0.55);
+  color: rgba(0,0,0,0.50);
   padding: 8px 10px;
   user-select: none;
-}
-.close:hover {
-  color: rgba(0,0,0,0.9);
+  -webkit-tap-highlight-color: transparent;
 }
 
-/* Viewport + track (sliding) */
+.close:hover { color: rgba(0,0,0,0.9); }
+
+/* Viewport + track */
 .slide-viewport {
-  width: 100vw;
+  width: 100%;
   height: 100vh;
   overflow: hidden;
+  touch-action: pan-y;
+}
+
+@supports (height: 100dvh) {
+  .slide-viewport { height: 100dvh; }
 }
 
 /* iOS Safari jitter fixes + GPU compositing */
@@ -171,9 +189,8 @@
   -webkit-backface-visibility: hidden;
 }
 
-.slide-viewport,
-#slideshow {
-  touch-action: pan-y; /* prevent horizontal gesture conflict */
+@supports (height: 100dvh) {
+  .slide-track { height: 100dvh; }
 }
 
 .slide {
@@ -183,6 +200,11 @@
   place-items: center;
 }
 
+@supports (height: 100dvh) {
+  .slide { height: 100dvh; }
+}
+
+/* Viewer images: fit within screen (no crop) */
 .slide img {
   max-width: 100vw;
   max-height: 100vh;
@@ -190,6 +212,10 @@
   height: auto;
   object-fit: contain;
   display: block;
+}
+
+@supports (height: 100dvh) {
+  .slide img { max-height: 100dvh; }
 }
 
 /* Arrows */
@@ -205,9 +231,11 @@
   padding: 10px 14px;
   cursor: pointer;
   user-select: none;
-  color: rgba(0, 0, 0, 0.22);
+  color: rgba(0,0,0,0.22);  /* quieter, more editorial */
+  -webkit-tap-highlight-color: transparent;
 }
-.arrow:hover { color: rgba(0, 0, 0, 0.75); }
+
+.arrow:hover { color: rgba(0,0,0,0.55); }
 .arrow.left { left: 10px; }
 .arrow.right { right: 10px; }
 
@@ -220,11 +248,11 @@
   z-index: 60;
   font-size: 12px;
   letter-spacing: 0.08em;
-  color: rgba(0, 0, 0, 0.42);
+  color: rgba(0,0,0,0.42); /* calmer */
   user-select: none;
 }
 
-/* Accessibility: reduce motion */
+/* Accessibility */
 @media (prefers-reduced-motion: reduce) {
   .slide-track { transition: none; }
   .site-header, .brand-footer { transition: none; }
