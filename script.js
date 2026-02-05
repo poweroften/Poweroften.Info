@@ -55,7 +55,7 @@ if (thumbsEl) {
   thumbsEl.appendChild(frag);
 }
 
-// ---------- Viewer page: directional 3-panel carousel ----------
+// ---------- Viewer page: directional 3-panel carousel (decode-gated, iOS hardened) ----------
 const track = document.getElementById("slideTrack");
 const prevImg = document.getElementById("slidePrev");
 const curImg  = document.getElementById("slideCurrent");
@@ -66,6 +66,8 @@ if (track && prevImg && curImg && nextImg && counterEl) {
   const params = new URLSearchParams(window.location.search);
   let current = clampSlide(parseInt(params.get("slide") || "1", 10));
   let animating = false;
+
+  const resident = new Map(); // keep a few decoded images alive (iOS)
 
   function setCounter() {
     counterEl.textContent = `${current} / ${TOTAL_SLIDES}`;
@@ -79,10 +81,36 @@ if (track && prevImg && curImg && nextImg && counterEl) {
 
   function warm(n) {
     n = normalize(n);
+    if (resident.has(n)) return;
+
     const im = new Image();
     im.decoding = "async";
     im.src = srcFor(n);
     if (im.decode) im.decode().catch(() => {});
+    resident.set(n, im);
+
+    // cap to avoid memory blowups
+    if (resident.size > 8) {
+      const firstKey = resident.keys().next().value;
+      resident.delete(firstKey);
+    }
+  }
+
+  async function waitImgReady(imgEl) {
+    // Prefer decode()
+    if (imgEl.decode) {
+      try { await imgEl.decode(); return; } catch (_) {}
+    }
+    // If already complete
+    if (imgEl.complete && imgEl.naturalWidth > 0) return;
+
+    // Wait for load/error briefly
+    await new Promise((resolve) => {
+      const done = () => resolve();
+      imgEl.addEventListener("load", done, { once: true });
+      imgEl.addEventListener("error", done, { once: true });
+      setTimeout(resolve, 600);
+    });
   }
 
   function updateImages() {
@@ -93,7 +121,7 @@ if (track && prevImg && curImg && nextImg && counterEl) {
     curImg.src  = srcFor(current);
     nextImg.src = srcFor(n);
 
-    // warm neighbors beyond prev/next
+    // warm beyond neighbors
     warm(p - 1 || TOTAL_SLIDES);
     warm(n + 1 > TOTAL_SLIDES ? 1 : n + 1);
 
@@ -104,27 +132,43 @@ if (track && prevImg && curImg && nextImg && counterEl) {
   function snapToCenterNoAnim() {
     track.style.transition = "none";
     track.style.transform = "translate3d(-100vw,0,0)";
-    track.getBoundingClientRect(); // force reflow
+    track.getBoundingClientRect(); // reflow
     track.style.transition = "";
   }
 
-  function go(dir) {
+  async function go(dir) {
     if (animating) return;
     animating = true;
 
-    setEngaged(true);
+    document.documentElement.classList.add("is-engaged");
 
-    // Directional:
-    // dir = +1 => next (slide left)
-    // dir = -1 => prev (slide right)
+    // ✅ Ensure the incoming image is decoded BEFORE we animate.
+    // If going next, incoming is nextImg; if prev, incoming is prevImg.
+    const incomingEl = (dir === +1) ? nextImg : prevImg;
+
+    // Make sure its src is already set
+    // (it should be, via updateImages)
+    await waitImgReady(incomingEl);
+
+    // One frame to let WebKit settle decoded pixels
+    await new Promise(requestAnimationFrame);
+
+    // Animate directionally
     track.style.transform =
       dir === +1
-        ? "translate3d(-200vw,0,0)"
-        : "translate3d(0vw,0,0)";
+        ? "translate3d(-200vw,0,0)" // slide left to next
+        : "translate3d(0vw,0,0)";   // slide right to prev
 
-    track.addEventListener("transitionend", () => {
+    track.addEventListener("transitionend", async () => {
+      // advance index
       current = normalize(current + dir);
+
+      // update images
       updateImages();
+
+      // ✅ critical: wait one frame after src swap before snapping back
+      await new Promise(requestAnimationFrame);
+
       snapToCenterNoAnim();
       animating = false;
     }, { once: true });
@@ -160,7 +204,7 @@ if (track && prevImg && curImg && nextImg && counterEl) {
 
   document.addEventListener("touchend", (e) => {
     const dx = e.changedTouches[0].clientX - startX;
-    if (dx < -50) go(+1); // swipe left => next
-    if (dx > 50) go(-1);  // swipe right => prev
+    if (dx < -50) go(+1);
+    if (dx > 50) go(-1);
   }, { passive: true });
 }
