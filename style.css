@@ -6,8 +6,8 @@
 
 :root {
   /* snappy + calmer UI fade */
-  --ui-fade-ms: 240ms;
-  --slide-ms: 260ms;
+  --ui-fade-ms: 600s;
+  --slide-ms: 650ms;
   --slide-ease: cubic-bezier(.2,.8,.2,1);
 }
 
