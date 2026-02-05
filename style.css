@@ -5,8 +5,9 @@
 }
 
 :root {
-  --ui-fade-ms: 420ms;
-  --slide-ms: 320ms;
+  /* snappy + calmer UI fade */
+  --ui-fade-ms: 240ms;
+  --slide-ms: 260ms;
   --slide-ease: cubic-bezier(.2,.8,.2,1);
 }
 
@@ -101,6 +102,7 @@
   width: 100%;
 }
 
+/* you changed this to 8 columns already */
 @media (min-width: 900px) {
   .thumbs-grid { grid-template-columns: repeat(8, 1fr); }
 }
@@ -155,13 +157,22 @@
   overflow: hidden;
 }
 
+/* iOS Safari jitter fixes + GPU compositing */
 .slide-track {
   width: 200vw;
   height: 100vh;
   display: flex;
-  transform: translateX(0);
+  transform: translate3d(0,0,0);
   transition: transform var(--slide-ms) var(--slide-ease);
   will-change: transform;
+
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.slide-viewport,
+#slideshow {
+  touch-action: pan-y; /* prevent horizontal gesture conflict */
 }
 
 .slide {

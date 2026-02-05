@@ -33,7 +33,6 @@ window.addEventListener(
 // ---------- Index page: build thumbnails ----------
 const thumbsEl = document.getElementById("thumbs");
 if (thumbsEl) {
-  // Build once
   const frag = document.createDocumentFragment();
   for (let i = 1; i <= TOTAL_SLIDES; i++) {
     const a = document.createElement("a");
@@ -62,20 +61,26 @@ if (track && imgA && imgB && counterEl) {
   const params = new URLSearchParams(window.location.search);
   let current = clampSlide(parseInt(params.get("slide") || "1", 10));
 
-  // A/B state
-  let showingA = true; // A is current at start
+  let showingA = true;
   let animating = false;
 
   // Preload cache
-  const preload = new Map(); // n -> Image()
+  const preload = new Map();
 
   function ensurePreload(n) {
     n = ((n - 1 + TOTAL_SLIDES) % TOTAL_SLIDES) + 1;
     if (preload.has(n)) return;
+
     const im = new Image();
     im.decoding = "async";
     im.loading = "eager";
     im.src = srcFor(n);
+
+    // Force decode when supported (helps iOS Safari reduce flicker)
+    if (im.decode) {
+      im.decode().catch(() => {});
+    }
+
     preload.set(n, im);
   }
 
@@ -90,15 +95,15 @@ if (track && imgA && imgB && counterEl) {
   }
 
   function prime() {
-    // Load current into A
     imgA.src = srcFor(current);
     imgB.src = "";
-    // Center on A
-    track.style.transform = "translateX(0)";
+
+    // Use GPU-friendly transform
+    track.style.transform = "translate3d(0,0,0)";
+
     updateCounter();
     updateURL();
 
-    // Preload neighbors
     ensurePreload(current + 1);
     ensurePreload(current - 1);
   }
@@ -107,47 +112,31 @@ if (track && imgA && imgB && counterEl) {
     if (animating) return;
     animating = true;
 
-    setEngaged(true); // move logo to footer after interaction
+    setEngaged(true);
 
     const incoming = showingA ? imgB : imgA;
     incoming.src = srcFor(nextSlide);
 
-    // Make sure neighbors stay warm
     ensurePreload(nextSlide + 1);
     ensurePreload(nextSlide - 1);
 
-    // Slide to show incoming
-    // If current is on A (left), incoming sits on B (right)
-    // direction +1 => slide left to reveal B
-    // direction -1 => we fake it by swapping roles (see below)
     if (direction === +1) {
-      // A -> B: translate to -100vw
       requestAnimationFrame(() => {
-        track.style.transform = "translateX(-100vw)";
+        track.style.transform = "translate3d(-100vw, 0, 0)";
       });
     } else {
-      // For prev: we want a right-to-left slide in the opposite direction.
-      // Trick: place incoming on the left by swapping instantly, then animate back.
-      // Step 1: put incoming image on A position
-      // We'll do this by flipping which image is "current" and using an immediate jump.
-      // Implementation: jump track to -100vw with incoming already visible there, then animate to 0.
-
-      // Ensure incoming is the left panel
-      // Swap showing flag early so "incoming" becomes left
-      // We'll just swap by toggling and rearranging via transform jump.
-      // 1) Jump to -100vw (so right panel is visible)
+      // prev: jump then animate back (keep it GPU-friendly)
       track.style.transition = "none";
-      track.style.transform = "translateX(-100vw)";
-      // 2) On next frame, restore transition and animate back to 0
+      track.style.transform = "translate3d(-100vw, 0, 0)";
+
       requestAnimationFrame(() => {
-        track.style.transition = ""; // revert to CSS transition
+        track.style.transition = "";
         requestAnimationFrame(() => {
-          track.style.transform = "translateX(0)";
+          track.style.transform = "translate3d(0,0,0)";
         });
       });
     }
 
-    // After transition ends, finalize state
     const onDone = () => {
       track.removeEventListener("transitionend", onDone);
 
@@ -155,25 +144,20 @@ if (track && imgA && imgB && counterEl) {
       updateCounter();
       updateURL();
 
-      // Normalize: always keep "current" on the left panel at rest (transform 0)
-      // Move the current image into A and reset B for the next transition
       const currentImg = showingA ? imgB : imgA;
-
       imgA.src = currentImg.src;
       imgB.src = "";
 
+      // Reset without flicker
       track.style.transition = "none";
-      track.style.transform = "translateX(0)";
-      // force reflow to apply the reset
-      track.getBoundingClientRect();
+      track.style.transform = "translate3d(0,0,0)";
+      track.getBoundingClientRect(); // force reflow
       track.style.transition = "";
 
-      showingA = true; // current is now on A
+      showingA = true;
       animating = false;
     };
 
-    // Only listen when we used the normal transition
-    // For "prev" we animate too (back to 0), still ends in transitionend.
     track.addEventListener("transitionend", onDone, { once: true });
   }
 
@@ -187,13 +171,11 @@ if (track && imgA && imgB && counterEl) {
     go(n, -1);
   }
 
-  // Start
   prime();
 
   // Arrows
   const rightArrow = document.querySelector(".arrow.right");
   const leftArrow = document.querySelector(".arrow.left");
-
   if (rightArrow) rightArrow.addEventListener("click", (e) => { e.stopPropagation(); next(); });
   if (leftArrow) leftArrow.addEventListener("click", (e) => { e.stopPropagation(); prev(); });
 
@@ -206,7 +188,10 @@ if (track && imgA && imgB && counterEl) {
 
   // Swipe
   let startX = 0;
+  let lastTouch = 0;
+
   document.addEventListener("touchstart", (e) => {
+    lastTouch = Date.now();
     startX = e.touches[0].clientX;
   }, { passive: true });
 
@@ -216,6 +201,9 @@ if (track && imgA && imgB && counterEl) {
     if (endX > startX + 50) prev();
   }, { passive: true });
 
-  // Optional: click to advance (remove if you don’t want it)
-  document.addEventListener("click", () => next());
+  // Click-to-advance (guarded so swipe doesn't trigger a click advance)
+  document.addEventListener("click", () => {
+    if (Date.now() - lastTouch < 500) return;
+    next();
+  });
 }
