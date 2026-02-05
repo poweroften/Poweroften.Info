@@ -17,6 +17,10 @@ function clampSlide(n) {
   return n;
 }
 
+function normalize(n) {
+  return ((n - 1 + TOTAL_SLIDES) % TOTAL_SLIDES) + 1;
+}
+
 function setEngaged(isOn) {
   const root = document.documentElement;
   if (isOn) root.classList.add("is-engaged");
@@ -51,150 +55,112 @@ if (thumbsEl) {
   thumbsEl.appendChild(frag);
 }
 
-// ---------- Viewer page: 2-panel sliding slideshow ----------
+// ---------- Viewer page: directional 3-panel carousel ----------
 const track = document.getElementById("slideTrack");
-const imgA = document.getElementById("slideA");
-const imgB = document.getElementById("slideB");
+const prevImg = document.getElementById("slidePrev");
+const curImg  = document.getElementById("slideCurrent");
+const nextImg = document.getElementById("slideNext");
 const counterEl = document.getElementById("counter");
 
-if (track && imgA && imgB && counterEl) {
+if (track && prevImg && curImg && nextImg && counterEl) {
   const params = new URLSearchParams(window.location.search);
   let current = clampSlide(parseInt(params.get("slide") || "1", 10));
-
   let animating = false;
-  const preload = new Map(); // n -> Image
-  let lastTouch = 0;
 
-  function normalize(n) {
-    return ((n - 1 + TOTAL_SLIDES) % TOTAL_SLIDES) + 1;
+  function setCounter() {
+    counterEl.textContent = `${current} / ${TOTAL_SLIDES}`;
   }
 
-  function ensurePreload(n) {
-    n = normalize(n);
-    if (preload.has(n)) return;
-
-    const im = new Image();
-    im.decoding = "async";
-    im.loading = "eager";
-    im.src = srcFor(n);
-
-    // Warm decode (reduces iOS flashes)
-    if (im.decode) im.decode().catch(() => {});
-
-    preload.set(n, im);
-  }
-
-  function updateURL() {
+  function setURL() {
     const url = new URL(window.location.href);
     url.searchParams.set("slide", String(current));
     history.replaceState({}, "", url);
   }
 
-  function updateCounter() {
-    counterEl.textContent = `${current} / ${TOTAL_SLIDES}`;
+  function warm(n) {
+    n = normalize(n);
+    const im = new Image();
+    im.decoding = "async";
+    im.src = srcFor(n);
+    if (im.decode) im.decode().catch(() => {});
   }
 
-  function prime() {
-    imgA.src = srcFor(current);
-    imgB.src = "";
-    track.style.transform = "translate3d(0,0,0)";
-    updateCounter();
-    updateURL();
+  function updateImages() {
+    const p = current - 1 || TOTAL_SLIDES;
+    const n = current % TOTAL_SLIDES + 1;
 
-    ensurePreload(current + 1);
-    ensurePreload(current - 1);
+    prevImg.src = srcFor(p);
+    curImg.src  = srcFor(current);
+    nextImg.src = srcFor(n);
+
+    // warm neighbors beyond prev/next
+    warm(p - 1 || TOTAL_SLIDES);
+    warm(n + 1 > TOTAL_SLIDES ? 1 : n + 1);
+
+    setCounter();
+    setURL();
   }
 
-  function go(nextSlide, direction /* +1 or -1 */) {
+  function snapToCenterNoAnim() {
+    track.style.transition = "none";
+    track.style.transform = "translate3d(-100vw,0,0)";
+    track.getBoundingClientRect(); // force reflow
+    track.style.transition = "";
+  }
+
+  function go(dir) {
     if (animating) return;
     animating = true;
 
     setEngaged(true);
 
-    nextSlide = normalize(nextSlide);
+    // Directional:
+    // dir = +1 => next (slide left)
+    // dir = -1 => prev (slide right)
+    track.style.transform =
+      dir === +1
+        ? "translate3d(-200vw,0,0)"
+        : "translate3d(0vw,0,0)";
 
-    // Put incoming image in B
-    imgB.src = srcFor(nextSlide);
-
-    // Warm neighbors
-    ensurePreload(nextSlide + 1);
-    ensurePreload(nextSlide - 1);
-
-    // Always animate the same way (left) to reduce Safari weirdness:
-    // For "prev", we compute the previous slide but still animate forward visually.
-    // (Feels consistent + avoids direction-flip glitches.)
-    requestAnimationFrame(() => {
-      track.style.transform = "translate3d(-100vw, 0, 0)";
-    });
-
-    const onDone = () => {
-      // Commit new current
-      current = nextSlide;
-
-      // Swap A <- B
-      imgA.src = imgB.src;
-      imgB.src = "";
-
-      updateCounter();
-      updateURL();
-
-      // Snap back to start instantly (no visual jump because image already swapped)
-      track.style.transition = "none";
-      track.style.transform = "translate3d(0,0,0)";
-      track.getBoundingClientRect(); // reflow
-      track.style.transition = "";
-
+    track.addEventListener("transitionend", () => {
+      current = normalize(current + dir);
+      updateImages();
+      snapToCenterNoAnim();
       animating = false;
-    };
-
-    track.addEventListener("transitionend", onDone, { once: true });
+    }, { once: true });
   }
 
-  function next() {
-    go(current + 1, +1);
-  }
+  // init
+  updateImages();
+  snapToCenterNoAnim();
 
-  function prev() {
-    // We still animate forward, but set incoming to previous slide
-    go(current - 1, -1);
-  }
-
-  prime();
-
-  // Arrows
+  // arrows
   document.querySelector(".arrow.right")?.addEventListener("click", (e) => {
     e.stopPropagation();
-    next();
+    go(+1);
   });
 
   document.querySelector(".arrow.left")?.addEventListener("click", (e) => {
     e.stopPropagation();
-    prev();
+    go(-1);
   });
 
-  // Keyboard
+  // keyboard
   document.addEventListener("keydown", (e) => {
-    if (e.key === "ArrowRight") next();
-    if (e.key === "ArrowLeft") prev();
+    if (e.key === "ArrowRight") go(+1);
+    if (e.key === "ArrowLeft") go(-1);
     if (e.key === "Escape") window.location.href = "index.html";
   });
 
-  // Swipe
+  // swipe
   let startX = 0;
   document.addEventListener("touchstart", (e) => {
-    lastTouch = Date.now();
     startX = e.touches[0].clientX;
   }, { passive: true });
 
   document.addEventListener("touchend", (e) => {
     const dx = e.changedTouches[0].clientX - startX;
-    if (dx < -50) next();
-    if (dx > 50) prev();
+    if (dx < -50) go(+1); // swipe left => next
+    if (dx > 50) go(-1);  // swipe right => prev
   }, { passive: true });
-
-  // Optional click-to-advance (guarded)
-  document.addEventListener("click", () => {
-    if (Date.now() - lastTouch < 500) return;
-    next();
-  });
 }

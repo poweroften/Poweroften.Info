@@ -6,20 +6,17 @@
 
 /* Smooth + editorial */
 :root {
-  /* UI fade should be subtle and quick (your old file had 600s) */
   --ui-fade-ms: 260ms;
 
   /* Phoebe-style glide */
   --slide-ms: 800ms;
   --slide-ease: cubic-bezier(0.22, 0.61, 0.36, 1);
 
-  /* spacing */
   --top-pad: 14px;
   --side-pad: 14px;
 }
 
 /* ---------- Brand header (top) ---------- */
-/* Center it the robust way (avoids Safari + vw drift) */
 .site-header {
   position: fixed;
   top: var(--top-pad);
@@ -62,7 +59,7 @@
   height: 18px;
   width: auto;
   display: block;
-  opacity: 0.12;          /* slightly quieter */
+  opacity: 0.12;
   filter: saturate(0);
 }
 
@@ -71,7 +68,6 @@
   opacity: 0;
   transform: translateX(-50%) translateY(-6px);
 }
-
 .is-engaged .brand-footer {
   opacity: 1;
 }
@@ -141,7 +137,6 @@
   width: 100%;
   height: 100vh;
 }
-
 @supports (height: 100dvh) {
   #slideshow { height: 100dvh; }
 }
@@ -160,37 +155,35 @@
   user-select: none;
   -webkit-tap-highlight-color: transparent;
 }
-
 .close:hover { color: rgba(0,0,0,0.9); }
 
-/* Viewport + track */
+/* Viewport */
 .slide-viewport {
   width: 100%;
   height: 100vh;
   overflow: hidden;
   touch-action: pan-y;
 }
-
 @supports (height: 100dvh) {
   .slide-viewport { height: 100dvh; }
 }
 
-/* iOS Safari jitter fixes + GPU compositing */
-.slide-track {
-  width: 200vw;
+/* Track (3-panel) */
+.slide-track.is-3panel {
+  width: 300vw;
   height: 100vh;
   display: flex;
 
-  transform: translate3d(0,0,0);
+  /* resting on center panel */
+  transform: translate3d(-100vw,0,0);
   transition: transform var(--slide-ms) var(--slide-ease);
 
   will-change: transform;
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
 }
-
 @supports (height: 100dvh) {
-  .slide-track { height: 100dvh; }
+  .slide-track.is-3panel { height: 100dvh; }
 }
 
 .slide {
@@ -199,7 +192,6 @@
   display: grid;
   place-items: center;
 }
-
 @supports (height: 100dvh) {
   .slide { height: 100dvh; }
 }
@@ -213,7 +205,6 @@
   object-fit: contain;
   display: block;
 }
-
 @supports (height: 100dvh) {
   .slide img { max-height: 100dvh; }
 }
@@ -231,10 +222,9 @@
   padding: 10px 14px;
   cursor: pointer;
   user-select: none;
-  color: rgba(0,0,0,0.22);  /* quieter, more editorial */
+  color: rgba(0,0,0,0.22);
   -webkit-tap-highlight-color: transparent;
 }
-
 .arrow:hover { color: rgba(0,0,0,0.55); }
 .arrow.left { left: 10px; }
 .arrow.right { right: 10px; }
@@ -248,7 +238,7 @@
   z-index: 60;
   font-size: 12px;
   letter-spacing: 0.08em;
-  color: rgba(0,0,0,0.42); /* calmer */
+  color: rgba(0,0,0,0.42);
   user-select: none;
 }
 
