@@ -8,7 +8,7 @@
   /* snappy + calmer UI fade */
   --ui-fade-ms: 600s;
   --slide-ms: 650ms;
-  --slide-ease: cubic-bezier(.2,.8,.2,1);
+  --slide-ease: cubic-bezier(.16, 1, .3, 1);
 }
 
 /* ---------- Brand header (top) ---------- */
@@ -162,10 +162,11 @@
   width: 200vw;
   height: 100vh;
   display: flex;
+
   transform: translate3d(0,0,0);
   transition: transform var(--slide-ms) var(--slide-ease);
-  will-change: transform;
 
+  will-change: transform;
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
 }

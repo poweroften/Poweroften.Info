@@ -51,7 +51,7 @@ if (thumbsEl) {
   thumbsEl.appendChild(frag);
 }
 
-// ---------- Viewer page: sliding slideshow ----------
+// ---------- Viewer page: 2-panel sliding slideshow ----------
 const track = document.getElementById("slideTrack");
 const imgA = document.getElementById("slideA");
 const imgB = document.getElementById("slideB");
@@ -61,14 +61,16 @@ if (track && imgA && imgB && counterEl) {
   const params = new URLSearchParams(window.location.search);
   let current = clampSlide(parseInt(params.get("slide") || "1", 10));
 
-  let showingA = true;
   let animating = false;
+  const preload = new Map(); // n -> Image
+  let lastTouch = 0;
 
-  // Preload cache
-  const preload = new Map();
+  function normalize(n) {
+    return ((n - 1 + TOTAL_SLIDES) % TOTAL_SLIDES) + 1;
+  }
 
   function ensurePreload(n) {
-    n = ((n - 1 + TOTAL_SLIDES) % TOTAL_SLIDES) + 1;
+    n = normalize(n);
     if (preload.has(n)) return;
 
     const im = new Image();
@@ -76,10 +78,8 @@ if (track && imgA && imgB && counterEl) {
     im.loading = "eager";
     im.src = srcFor(n);
 
-    // Force decode when supported (helps iOS Safari reduce flicker)
-    if (im.decode) {
-      im.decode().catch(() => {});
-    }
+    // Warm decode (reduces iOS flashes)
+    if (im.decode) im.decode().catch(() => {});
 
     preload.set(n, im);
   }
@@ -97,10 +97,7 @@ if (track && imgA && imgB && counterEl) {
   function prime() {
     imgA.src = srcFor(current);
     imgB.src = "";
-
-    // Use GPU-friendly transform
     track.style.transform = "translate3d(0,0,0)";
-
     updateCounter();
     updateURL();
 
@@ -114,47 +111,39 @@ if (track && imgA && imgB && counterEl) {
 
     setEngaged(true);
 
-    const incoming = showingA ? imgB : imgA;
-    incoming.src = srcFor(nextSlide);
+    nextSlide = normalize(nextSlide);
 
+    // Put incoming image in B
+    imgB.src = srcFor(nextSlide);
+
+    // Warm neighbors
     ensurePreload(nextSlide + 1);
     ensurePreload(nextSlide - 1);
 
-    if (direction === +1) {
-      requestAnimationFrame(() => {
-        track.style.transform = "translate3d(-100vw, 0, 0)";
-      });
-    } else {
-      // prev: jump then animate back (keep it GPU-friendly)
-      track.style.transition = "none";
+    // Always animate the same way (left) to reduce Safari weirdness:
+    // For "prev", we compute the previous slide but still animate forward visually.
+    // (Feels consistent + avoids direction-flip glitches.)
+    requestAnimationFrame(() => {
       track.style.transform = "translate3d(-100vw, 0, 0)";
-
-      requestAnimationFrame(() => {
-        track.style.transition = "";
-        requestAnimationFrame(() => {
-          track.style.transform = "translate3d(0,0,0)";
-        });
-      });
-    }
+    });
 
     const onDone = () => {
-      track.removeEventListener("transitionend", onDone);
-
+      // Commit new current
       current = nextSlide;
+
+      // Swap A <- B
+      imgA.src = imgB.src;
+      imgB.src = "";
+
       updateCounter();
       updateURL();
 
-      const currentImg = showingA ? imgB : imgA;
-      imgA.src = currentImg.src;
-      imgB.src = "";
-
-      // Reset without flicker
+      // Snap back to start instantly (no visual jump because image already swapped)
       track.style.transition = "none";
       track.style.transform = "translate3d(0,0,0)";
-      track.getBoundingClientRect(); // force reflow
+      track.getBoundingClientRect(); // reflow
       track.style.transition = "";
 
-      showingA = true;
       animating = false;
     };
 
@@ -162,22 +151,26 @@ if (track && imgA && imgB && counterEl) {
   }
 
   function next() {
-    const n = current % TOTAL_SLIDES + 1;
-    go(n, +1);
+    go(current + 1, +1);
   }
 
   function prev() {
-    const n = current - 1 || TOTAL_SLIDES;
-    go(n, -1);
+    // We still animate forward, but set incoming to previous slide
+    go(current - 1, -1);
   }
 
   prime();
 
   // Arrows
-  const rightArrow = document.querySelector(".arrow.right");
-  const leftArrow = document.querySelector(".arrow.left");
-  if (rightArrow) rightArrow.addEventListener("click", (e) => { e.stopPropagation(); next(); });
-  if (leftArrow) leftArrow.addEventListener("click", (e) => { e.stopPropagation(); prev(); });
+  document.querySelector(".arrow.right")?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    next();
+  });
+
+  document.querySelector(".arrow.left")?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    prev();
+  });
 
   // Keyboard
   document.addEventListener("keydown", (e) => {
@@ -188,20 +181,18 @@ if (track && imgA && imgB && counterEl) {
 
   // Swipe
   let startX = 0;
-  let lastTouch = 0;
-
   document.addEventListener("touchstart", (e) => {
     lastTouch = Date.now();
     startX = e.touches[0].clientX;
   }, { passive: true });
 
   document.addEventListener("touchend", (e) => {
-    const endX = e.changedTouches[0].clientX;
-    if (endX < startX - 50) next();
-    if (endX > startX + 50) prev();
+    const dx = e.changedTouches[0].clientX - startX;
+    if (dx < -50) next();
+    if (dx > 50) prev();
   }, { passive: true });
 
-  // Click-to-advance (guarded so swipe doesn't trigger a click advance)
+  // Optional click-to-advance (guarded)
   document.addEventListener("click", () => {
     if (Date.now() - lastTouch < 500) return;
     next();
