@@ -8,48 +8,30 @@
 </head>
 
 <body class="viewer-page">
-  <!-- Brand logo (top) -->
   <header class="site-header" id="siteHeader">
     <a class="brand" href="index.html" aria-label="Back to index">
       <img src="img/logo.png" alt="Power of Ten" />
     </a>
   </header>
 
-  <!-- Brand logo (bottom background) -->
   <div class="brand-footer" id="brandFooter" aria-hidden="true">
     <img src="img/logo.png" alt="" />
   </div>
 
   <div id="slideshow">
-    <!-- White overlay mask (for iOS warm-up flicker) -->
-    <div id="whiteOverlay" aria-hidden="true"></div>
-
     <a class="close" href="index.html" aria-label="Close">×</a>
 
-    <div class="slide-viewport">
-      <div class="slide-track is-3panel" id="slideTrack">
-        <div class="slide"><img id="slidePrev" alt="" decoding="async" draggable="false" /></div>
-        <div class="slide"><img id="slideCurrent" alt="" decoding="async" draggable="false" /></div>
-        <div class="slide"><img id="slideNext" alt="" decoding="async" draggable="false" /></div>
-      </div>
+    <!-- Native scroll-snap viewer -->
+    <div class="slide-viewport" id="slideViewport" aria-label="Gallery viewer">
+      <div class="slide-strip" id="slideStrip"></div>
     </div>
 
-    <!-- Keep your arrow buttons as-is -->
-    <button class="arrow left" aria-label="Previous">
-      <svg class="chev" viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M15 18l-6-6 6-6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-    </button>
-
-    <button class="arrow right" aria-label="Next">
-      <svg class="chev" viewBox="0 0 24 24" aria-hidden="true">
-        <path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-      </svg>
-    </button>
+    <!-- Keep your arrows -->
+    <button class="arrow left" aria-label="Previous">‹</button>
+    <button class="arrow right" aria-label="Next">›</button>
   </div>
 
   <div id="counter"></div>
-
   <script src="script.js"></script>
 </body>
 </html>
