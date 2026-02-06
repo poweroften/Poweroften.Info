@@ -55,20 +55,31 @@ if (thumbsEl) {
   thumbsEl.appendChild(frag);
 }
 
-// ---------- Viewer: directional 3-panel carousel ----------
+// ---------- Viewer: directional 3-panel carousel (DRAGGABLE) ----------
 const track = document.getElementById("slideTrack");
 const prevImg = document.getElementById("slidePrev");
 const curImg = document.getElementById("slideCurrent");
 const nextImg = document.getElementById("slideNext");
 const counterEl = document.getElementById("counter");
+const viewport = document.querySelector(".slide-viewport");
 
-if (track && prevImg && curImg && nextImg && counterEl) {
+if (track && prevImg && curImg && nextImg && counterEl && viewport) {
   const params = new URLSearchParams(window.location.search);
   let current = clampSlide(parseInt(params.get("slide") || "1", 10));
   let animating = false;
 
-  // Keep some decoded images alive on iOS (prevents GC dropping warm images)
+  // Keep decoded images alive (helps iOS)
   const resident = new Map();
+  function warm(n) {
+    n = normalize(n);
+    if (resident.has(n)) return;
+    const im = new Image();
+    im.decoding = "async";
+    im.src = srcFor(n);
+    if (im.decode) im.decode().catch(() => {});
+    resident.set(n, im);
+    if (resident.size > 8) resident.delete(resident.keys().next().value);
+  }
 
   function setCounter() {
     counterEl.textContent = `${current} / ${TOTAL_SLIDES}`;
@@ -80,23 +91,6 @@ if (track && prevImg && curImg && nextImg && counterEl) {
     history.replaceState({}, "", url);
   }
 
-  function warm(n) {
-    n = normalize(n);
-    if (resident.has(n)) return;
-
-    const im = new Image();
-    im.decoding = "async";
-    im.src = srcFor(n);
-    if (im.decode) im.decode().catch(() => {});
-    resident.set(n, im);
-
-    // cap cache size
-    if (resident.size > 8) {
-      const firstKey = resident.keys().next().value;
-      resident.delete(firstKey);
-    }
-  }
-
   function updateImages() {
     const p = current - 1 || TOTAL_SLIDES;
     const n = current % TOTAL_SLIDES + 1;
@@ -105,7 +99,6 @@ if (track && prevImg && curImg && nextImg && counterEl) {
     curImg.src = srcFor(current);
     nextImg.src = srcFor(n);
 
-    // warm extra neighbors
     warm(p - 1 || TOTAL_SLIDES);
     warm(n + 1 > TOTAL_SLIDES ? 1 : n + 1);
 
@@ -113,11 +106,52 @@ if (track && prevImg && curImg && nextImg && counterEl) {
     setURL();
   }
 
-  function snapToCenterNoAnim() {
+  // --- Transform helpers
+  let currentX = 0;
+
+  const baseX = () => -window.innerWidth; // center panel
+
+  const setX = (x) => {
+    currentX = x;
+    track.style.transform = `translate3d(${x}px,0,0)`;
+    track.style.webkitTransform = `translate3d(${x}px,0,0)`;
+  };
+
+  function snapCenterNoAnim() {
     track.style.transition = "none";
-    track.style.transform = "translate3d(-100vw,0,0)";
-    track.getBoundingClientRect(); // force reflow
+    setX(baseX());
+    track.getBoundingClientRect(); // reflow
     track.style.transition = "";
+  }
+
+  // Safer animateTo: completes even if transitionend doesn't fire
+  function animateTo(targetX, onDone) {
+    // If already effectively there, complete immediately (prevents "stuck" state)
+    if (Math.abs(currentX - targetX) < 0.5) {
+      setX(targetX);
+      onDone?.();
+      return;
+    }
+
+    let finished = false;
+
+    const done = () => {
+      if (finished) return;
+      finished = true;
+      track.removeEventListener("transitionend", done);
+      onDone?.();
+    };
+
+    // Safety timeout (mobile browsers sometimes skip transitionend)
+    const timeout = setTimeout(done, 1200);
+
+    track.style.transition = `transform var(--slide-ms) var(--slide-ease)`;
+    setX(targetX);
+
+    track.addEventListener("transitionend", () => {
+      clearTimeout(timeout);
+      done();
+    }, { once: true });
   }
 
   function go(dir) {
@@ -126,29 +160,22 @@ if (track && prevImg && curImg && nextImg && counterEl) {
 
     setEngaged(true);
 
-    // dir = +1 => next (slide left)
-    // dir = -1 => prev (slide right)
-    track.style.transform = (dir === +1)
-      ? "translate3d(-200vw,0,0)"
-      : "translate3d(0vw,0,0)";
+    const w = window.innerWidth;
+    const targetX = dir === +1 ? -2 * w : 0;
 
-    track.addEventListener(
-      "transitionend",
-      () => {
-        current = normalize(current + dir);
-        updateImages();
-        snapToCenterNoAnim();
-        animating = false;
-      },
-      { once: true }
-    );
+    animateTo(targetX, () => {
+      current = normalize(current + dir);
+      updateImages();
+      snapCenterNoAnim();
+      animating = false;
+    });
   }
 
   // init
   updateImages();
-  snapToCenterNoAnim();
+  snapCenterNoAnim();
 
-  // arrows
+  // buttons
   document.querySelector(".arrow.right")?.addEventListener("click", (e) => {
     e.stopPropagation();
     go(+1);
@@ -166,15 +193,77 @@ if (track && prevImg && curImg && nextImg && counterEl) {
     if (e.key === "Escape") window.location.href = "index.html";
   });
 
-  // swipe
-  let startX = 0;
-  document.addEventListener("touchstart", (e) => {
-    startX = e.touches[0].clientX;
-  }, { passive: true });
+  // --- DRAG (pointer-based, works for touch + mouse)
+  let dragging = false;
+  let startClientX = 0;
+  let lastClientX = 0;
+  let lastT = 0;
+  let vx = 0; // velocity px/ms
+  let startBase = 0;
 
-  document.addEventListener("touchend", (e) => {
-    const dx = e.changedTouches[0].clientX - startX;
-    if (dx < -50) go(+1);
-    if (dx > 50) go(-1);
-  }, { passive: true });
+  function onDown(e) {
+    if (animating) return;
+
+    dragging = true;
+    setEngaged(true);
+
+    startClientX = e.clientX;
+    lastClientX = e.clientX;
+    lastT = performance.now();
+    vx = 0;
+
+    startBase = baseX();
+
+    // stop transitions while dragging
+    track.style.transition = "none";
+    viewport.setPointerCapture?.(e.pointerId);
+  }
+
+  function onMove(e) {
+    if (!dragging) return;
+
+    const now = performance.now();
+    const dx = e.clientX - startClientX;
+
+    const dt = Math.max(1, now - lastT);
+    vx = (e.clientX - lastClientX) / dt;
+    lastClientX = e.clientX;
+    lastT = now;
+
+    setX(startBase + dx);
+  }
+
+  function onUp(e) {
+    if (!dragging) return;
+    dragging = false;
+
+    const w = window.innerWidth;
+    const dx = e.clientX - startClientX;
+
+    // thresholds: distance OR velocity
+    const DIST = w * 0.18;
+    const VEL = 0.45;
+
+    const shouldNext = dx < -DIST || vx < -VEL;
+    const shouldPrev = dx >  DIST || vx >  VEL;
+
+    if (shouldNext) return go(+1);
+    if (shouldPrev) return go(-1);
+
+    // snap back to center
+    animateTo(-w, () => {
+      snapCenterNoAnim();
+      animating = false;
+    });
+  }
+
+  viewport.addEventListener("pointerdown", onDown, { passive: true });
+  viewport.addEventListener("pointermove", onMove, { passive: true });
+  viewport.addEventListener("pointerup", onUp, { passive: true });
+  viewport.addEventListener("pointercancel", onUp, { passive: true });
+
+  window.addEventListener("resize", () => {
+    // Keep centered after rotate; also update currentX
+    snapCenterNoAnim();
+  });
 }

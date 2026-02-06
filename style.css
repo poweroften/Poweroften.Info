@@ -213,33 +213,49 @@
   .slide img { max-height: 100dvh; }
 }
 
-/* Arrows (kept visually the same; added non-visual iOS reset) */
+/* Arrows — Phoebe-style (SVG chevrons) */
 .arrow {
   position: fixed;
   top: 50%;
   transform: translateY(-50%);
   z-index: 60;
 
-  background: none;
-  border: none;
-  font-size: 54px;
-  line-height: 1;
-  padding: 10px 14px;
-  cursor: pointer;
-  user-select: none;
-  color: rgba(0,0,0,0.22);
-  -webkit-tap-highlight-color: transparent;
-
-  /* iOS button chrome reset (does not change look) */
+  /* reset button chrome */
   appearance: none;
   -webkit-appearance: none;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  margin: 0;
   box-shadow: none;
+  border-radius: 0;
+
+  width: 44px;
+  height: 44px;
+
+  color: rgba(0,0,0,0.20); /* quiet */
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
-.arrow:hover { color: rgba(0,0,0,0.55); }
-.arrow.left { left: 10px; }
-.arrow.right { right: 10px; }
+
+.arrow.left  { left: 14px; }
+.arrow.right { right: 14px; }
+
 .arrow:focus,
 .arrow:focus-visible { outline: none; }
+
+.chev {
+  width: 28px;
+  height: 28px;
+  display: block;
+  margin: 0 auto;
+}
+
+/* subtle hover for desktop only */
+@media (hover:hover) {
+  .arrow:hover { color: rgba(0,0,0,0.45); }
+}
 
 /* Counter */
 #counter {
