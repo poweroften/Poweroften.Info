@@ -164,11 +164,15 @@ if (track && prevImg && curImg && nextImg && counterEl && viewport) {
     const targetX = dir === +1 ? -2 * w : 0;
 
     animateTo(targetX, () => {
-      current = normalize(current + dir);
-      updateImages();
-      snapCenterNoAnim();
-      animating = false;
-    });
+  current = normalize(current + dir);
+  updateImages();
+
+  // ✅ Give iOS one frame to repaint the new current image
+  requestAnimationFrame(() => {
+    snapCenterNoAnim();
+    animating = false;
+  });
+});
   }
 
   // init

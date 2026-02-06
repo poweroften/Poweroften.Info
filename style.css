@@ -137,6 +137,16 @@
   #slideshow { height: 100dvh; }
 }
 
+/* One-frame white mask to hide iOS stale-texture flicker */
+#whiteOverlay {
+  position: fixed;
+  inset: 0;
+  background: #fff;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 55; /* above slides, below arrows (60) & close (70) */
+}
+
 /* Close button */
 .close {
   position: fixed;
