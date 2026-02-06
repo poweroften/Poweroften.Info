@@ -262,6 +262,10 @@
   margin: 0 auto;
 }
 
+.chev path {
+  stroke-width: 2;
+}
+
 /* subtle hover for desktop only */
 @media (hover:hover) {
   .arrow:hover { color: rgba(0,0,0,0.45); }
