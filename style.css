@@ -127,3 +127,10 @@
   color:rgba(0,0,0,.42);
   user-select:none;
 }
+/* Hide scrollbars (Phoebe-clean) */
+.slide-viewport {
+  scrollbar-width: none; /* Firefox */
+}
+.slide-viewport::-webkit-scrollbar {
+  display: none; /* iOS/Chrome */
+}
