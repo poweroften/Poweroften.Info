@@ -178,9 +178,10 @@
   transform: translate3d(-100vw,0,0);
   transition: transform var(--slide-ms) var(--slide-ease);
 
-  will-change: transform;
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
+  transform: translateZ(0);
+  will-change: transform;
 }
 @supports (height: 100dvh) {
   .slide-track.is-3panel { height: 100dvh; }
