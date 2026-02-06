@@ -1,5 +1,5 @@
 // ================== CONFIG ==================
-const TOTAL_SLIDES = 40;
+const TOTAL_SLIDES = 48;
 // ============================================
 
 // ---------- helpers ----------
@@ -72,7 +72,7 @@ async function srcFor(i) {
 }
 
 // ---------- Index engage on scroll ----------
-window.addEventListener("scroll", () => setEngaged(window.scrollY > 40), { passive: true });
+window.addEventListener("scroll", () => setEngaged(window.scrollY > 48), { passive: true });
 
 // ---------- Index page: build thumbnails ----------
 const thumbsEl = document.getElementById("thumbs");
