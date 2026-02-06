@@ -25,18 +25,13 @@ function setEngaged(isOn) {
   document.documentElement.classList.toggle("is-engaged", isOn);
 }
 
-// ---------- Index: header/footer swap on scroll ----------
-window.addEventListener(
-  "scroll",
-  () => setEngaged(window.scrollY > 40),
-  { passive: true }
-);
+/* ---------- Index: header/footer swap on scroll ---------- */
+window.addEventListener("scroll", () => setEngaged(window.scrollY > 40), { passive: true });
 
-// ---------- Index: build thumbnails ----------
+/* ---------- Index: build thumbnails ---------- */
 const thumbsEl = document.getElementById("thumbs");
 if (thumbsEl) {
   const frag = document.createDocumentFragment();
-
   for (let i = 1; i <= TOTAL_SLIDES; i++) {
     const a = document.createElement("a");
     a.className = "thumb";
@@ -51,34 +46,70 @@ if (thumbsEl) {
     a.appendChild(img);
     frag.appendChild(a);
   }
-
   thumbsEl.appendChild(frag);
 }
 
-// ---------- Viewer: directional 3-panel carousel (DRAGGABLE) ----------
+/* ---------- Viewer: draggable 3-panel carousel + iOS warm-up ---------- */
 const track = document.getElementById("slideTrack");
 const prevImg = document.getElementById("slidePrev");
 const curImg = document.getElementById("slideCurrent");
 const nextImg = document.getElementById("slideNext");
 const counterEl = document.getElementById("counter");
 const viewport = document.querySelector(".slide-viewport");
+const whiteOverlay = document.getElementById("whiteOverlay");
 
 if (track && prevImg && curImg && nextImg && counterEl && viewport) {
   const params = new URLSearchParams(window.location.search);
   let current = clampSlide(parseInt(params.get("slide") || "1", 10));
   let animating = false;
 
+  // Show white mask only during iOS "warm-up" transitions.
+  let warmupTransitionsLeft = 12;
+
+  function flashWhiteFrame() {
+    if (!whiteOverlay) return;
+    if (warmupTransitionsLeft <= 0) return;
+    warmupTransitionsLeft--;
+
+    whiteOverlay.style.opacity = "1";
+    requestAnimationFrame(() => {
+      whiteOverlay.style.opacity = "0";
+    });
+  }
+
   // Keep decoded images alive (helps iOS)
   const resident = new Map();
+
   function warm(n) {
     n = normalize(n);
     if (resident.has(n)) return;
+
     const im = new Image();
     im.decoding = "async";
     im.src = srcFor(n);
     if (im.decode) im.decode().catch(() => {});
     resident.set(n, im);
-    if (resident.size > 8) resident.delete(resident.keys().next().value);
+
+    // Larger cache to avoid iOS throwing away decoded textures
+    if (resident.size > 24) {
+      resident.delete(resident.keys().next().value);
+    }
+  }
+
+  async function preloadWindow(center, radius = 8) {
+    const tasks = [];
+    for (let d = -radius; d <= radius; d++) {
+      const n = normalize(center + d);
+      warm(n);
+      const im = resident.get(n);
+      if (im && im.decode) tasks.push(im.decode().catch(() => {}));
+    }
+
+    // Don’t block forever; we just want to get ahead of iOS
+    await Promise.race([
+      Promise.all(tasks),
+      new Promise((res) => setTimeout(res, 350))
+    ]);
   }
 
   function setCounter() {
@@ -99,6 +130,9 @@ if (track && prevImg && curImg && nextImg && counterEl && viewport) {
     curImg.src = srcFor(current);
     nextImg.src = srcFor(n);
 
+    // warm immediate neighbors + a bit beyond
+    warm(p);
+    warm(n);
     warm(p - 1 || TOTAL_SLIDES);
     warm(n + 1 > TOTAL_SLIDES ? 1 : n + 1);
 
@@ -124,9 +158,8 @@ if (track && prevImg && curImg && nextImg && counterEl && viewport) {
     track.style.transition = "";
   }
 
-  // Safer animateTo: completes even if transitionend doesn't fire
+  // Safe animateTo: completes even if transitionend doesn't fire
   function animateTo(targetX, onDone) {
-    // If already effectively there, complete immediately (prevents "stuck" state)
     if (Math.abs(currentX - targetX) < 0.5) {
       setX(targetX);
       onDone?.();
@@ -134,7 +167,6 @@ if (track && prevImg && curImg && nextImg && counterEl && viewport) {
     }
 
     let finished = false;
-
     const done = () => {
       if (finished) return;
       finished = true;
@@ -142,16 +174,19 @@ if (track && prevImg && curImg && nextImg && counterEl && viewport) {
       onDone?.();
     };
 
-    // Safety timeout (mobile browsers sometimes skip transitionend)
     const timeout = setTimeout(done, 1200);
 
     track.style.transition = `transform var(--slide-ms) var(--slide-ease)`;
     setX(targetX);
 
-    track.addEventListener("transitionend", () => {
-      clearTimeout(timeout);
-      done();
-    }, { once: true });
+    track.addEventListener(
+      "transitionend",
+      () => {
+        clearTimeout(timeout);
+        done();
+      },
+      { once: true }
+    );
   }
 
   function go(dir) {
@@ -163,21 +198,26 @@ if (track && prevImg && curImg && nextImg && counterEl && viewport) {
     const w = window.innerWidth;
     const targetX = dir === +1 ? -2 * w : 0;
 
-    animateTo(targetX, () => {
-  current = normalize(current + dir);
-  updateImages();
+    animateTo(targetX, async () => {
+      current = normalize(current + dir);
+      updateImages();
 
-  // ✅ Give iOS one frame to repaint the new current image
-  requestAnimationFrame(() => {
-    snapCenterNoAnim();
-    animating = false;
-  });
-});
+      // Warm up the next window so the "first ~12" issue doesn't travel with start slide
+      preloadWindow(current, 8);
+
+      // One-frame settle then mask the snap-back frame
+      requestAnimationFrame(() => {
+        flashWhiteFrame();
+        snapCenterNoAnim();
+        animating = false;
+      });
+    });
   }
 
   // init
   updateImages();
   snapCenterNoAnim();
+  preloadWindow(current, 8);
 
   // buttons
   document.querySelector(".arrow.right")?.addEventListener("click", (e) => {
@@ -197,7 +237,7 @@ if (track && prevImg && curImg && nextImg && counterEl && viewport) {
     if (e.key === "Escape") window.location.href = "index.html";
   });
 
-  // --- DRAG (pointer-based, works for touch + mouse)
+  // --- DRAG (pointer-based)
   let dragging = false;
   let startClientX = 0;
   let lastClientX = 0;
@@ -207,7 +247,6 @@ if (track && prevImg && curImg && nextImg && counterEl && viewport) {
 
   function onDown(e) {
     if (animating) return;
-
     dragging = true;
     setEngaged(true);
 
@@ -217,8 +256,6 @@ if (track && prevImg && curImg && nextImg && counterEl && viewport) {
     vx = 0;
 
     startBase = baseX();
-
-    // stop transitions while dragging
     track.style.transition = "none";
     viewport.setPointerCapture?.(e.pointerId);
   }
@@ -244,7 +281,6 @@ if (track && prevImg && curImg && nextImg && counterEl && viewport) {
     const w = window.innerWidth;
     const dx = e.clientX - startClientX;
 
-    // thresholds: distance OR velocity
     const DIST = w * 0.18;
     const VEL = 0.45;
 
@@ -256,8 +292,11 @@ if (track && prevImg && curImg && nextImg && counterEl && viewport) {
 
     // snap back to center
     animateTo(-w, () => {
-      snapCenterNoAnim();
-      animating = false;
+      requestAnimationFrame(() => {
+        flashWhiteFrame();
+        snapCenterNoAnim();
+        animating = false;
+      });
     });
   }
 
@@ -267,7 +306,6 @@ if (track && prevImg && curImg && nextImg && counterEl && viewport) {
   viewport.addEventListener("pointercancel", onUp, { passive: true });
 
   window.addEventListener("resize", () => {
-    // Keep centered after rotate; also update currentX
     snapCenterNoAnim();
   });
 }

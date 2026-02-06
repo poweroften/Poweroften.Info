@@ -21,6 +21,9 @@
   </div>
 
   <div id="slideshow">
+    <!-- White overlay mask (for iOS warm-up flicker) -->
+    <div id="whiteOverlay" aria-hidden="true"></div>
+
     <a class="close" href="index.html" aria-label="Close">×</a>
 
     <div class="slide-viewport">
@@ -31,17 +34,18 @@
       </div>
     </div>
 
-   <button class="arrow left" aria-label="Previous">
-  <svg class="chev" viewBox="0 0 24 24" aria-hidden="true">
-    <path d="M15 18l-6-6 6-6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-  </svg>
-</button>
+    <!-- Keep your arrow buttons as-is -->
+    <button class="arrow left" aria-label="Previous">
+      <svg class="chev" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M15 18l-6-6 6-6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
 
-<button class="arrow right" aria-label="Next">
-  <svg class="chev" viewBox="0 0 24 24" aria-hidden="true">
-    <path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-  </svg>
-</button>
+    <button class="arrow right" aria-label="Next">
+      <svg class="chev" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </button>
   </div>
 
   <div id="counter"></div>
