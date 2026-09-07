@@ -1,5 +1,9 @@
 // ================== CONFIG ==================
 const TOTAL_SLIDES = 48;
+// Known, fixed dimensions for every slide (all source photos share these).
+// Setting width/height up front prevents layout shift while images load.
+const THUMB_W = 480, THUMB_H = 725;
+const FULL_W = 1286, FULL_H = 1944;
 // ============================================
 
 // ---------- helpers ----------
@@ -14,61 +18,15 @@ function setEngaged(isOn) {
   document.documentElement.classList.toggle("is-engaged", !!isOn);
 }
 
-// Base folder for images (same folder structure as your logo)
-const IMG_DIR = "img/";
-
-// Detect your actual file naming once (jpg/jpeg/png + padded/nonpadded)
-let detectedPattern = null;
-
-function buildCandidates(i) {
-  const n = String(i);
-  const n2 = pad2(i);
-  const exts = ["jpg", "jpeg", "png", "webp"];
-  const names = [n2, n]; // try padded first, then plain
-  const out = [];
-  for (const name of names) {
-    for (const ext of exts) out.push(`${IMG_DIR}${name}.${ext}`);
-  }
-  return out;
+// Small (480px) WebP thumbnails for the index grid.
+function thumbSrcFor(i) {
+  return `img/thumbs/${pad2(i)}.webp`;
 }
 
-function probeUrl(url) {
-  return new Promise((resolve) => {
-    const im = new Image();
-    im.decoding = "async";
-    im.onload = () => resolve(true);
-    im.onerror = () => resolve(false);
-    im.src = url;
-  });
-}
-
-async function detectPattern() {
-  if (detectedPattern) return detectedPattern;
-
-  // Try slide 1 to detect the naming convention
-  const candidates = buildCandidates(1);
-  for (const url of candidates) {
-    // eslint-disable-next-line no-await-in-loop
-    const ok = await probeUrl(url);
-    if (ok) {
-      // infer extension + padding from the winning URL
-      const file = url.replace(IMG_DIR, "");
-      const m = file.match(/^(\d+)\.(\w+)$/);
-      const padLen = m ? m[1].length : 2;
-      const ext = m ? m[2] : "jpg";
-      detectedPattern = { padLen, ext };
-      return detectedPattern;
-    }
-  }
-
-  detectedPattern = { padLen: 2, ext: "jpg" }; // fallback
-  return detectedPattern;
-}
-
-async function srcFor(i) {
-  const pat = await detectPattern();
-  const name = pat.padLen === 2 ? pad2(i) : String(i).padStart(pat.padLen, "0");
-  return `${IMG_DIR}${name}.${pat.ext}`;
+// Full-size WebP for the swipe viewer — no dynamic probing needed, the
+// naming convention is fixed and known ahead of time.
+function srcFor(i) {
+  return `img/${pad2(i)}.webp`;
 }
 
 // ---------- Index engage on scroll ----------
@@ -77,27 +35,28 @@ window.addEventListener("scroll", () => setEngaged(window.scrollY > 48), { passi
 // ---------- Index page: build thumbnails ----------
 const thumbsEl = document.getElementById("thumbs");
 if (thumbsEl) {
-  (async () => {
-    await detectPattern();
-    const frag = document.createDocumentFragment();
+  const frag = document.createDocumentFragment();
 
-    for (let i = 1; i <= TOTAL_SLIDES; i++) {
-      const a = document.createElement("a");
-      a.className = "thumb";
-      a.href = `viewer.html?slide=${i}`;
+  for (let i = 1; i <= TOTAL_SLIDES; i++) {
+    const a = document.createElement("a");
+    a.className = "thumb";
+    a.href = `viewer.html?slide=${i}`;
 
-      const img = document.createElement("img");
-      img.loading = "lazy";
-      img.decoding = "async";
-      img.alt = `Slide ${i}`;
-      img.src = await srcFor(i);
+    const img = document.createElement("img");
+    // Only the first row is visible on load; give it priority and skip
+    // lazy-loading so it's not delayed behind the lazy-load heuristic.
+    img.loading = i <= 8 ? "eager" : "lazy";
+    img.decoding = "async";
+    img.alt = `Slide ${i}`;
+    img.width = THUMB_W;
+    img.height = THUMB_H;
+    img.src = thumbSrcFor(i);
 
-      a.appendChild(img);
-      frag.appendChild(a);
-    }
+    a.appendChild(img);
+    frag.appendChild(a);
+  }
 
-    thumbsEl.appendChild(frag);
-  })();
+  thumbsEl.appendChild(frag);
 }
 
 // ---------- Viewer: native scroll-snap strip ----------
@@ -106,9 +65,7 @@ const strip = document.getElementById("slideStrip");
 const counterEl = document.getElementById("counter");
 
 if (viewport && strip && counterEl) {
-  (async () => {
-    await detectPattern();
-
+  (() => {
     const params = new URLSearchParams(window.location.search);
     let current = clampSlide(parseInt(params.get("slide") || "1", 10));
 
@@ -122,7 +79,9 @@ if (viewport && strip && counterEl) {
       img.decoding = "async";
       img.draggable = false;
       img.alt = `Slide ${i}`;
-      img.dataset.src = await srcFor(i);
+      img.width = FULL_W;
+      img.height = FULL_H;
+      img.dataset.src = srcFor(i);
 
       s.appendChild(img);
       strip.appendChild(s);
